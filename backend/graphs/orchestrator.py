@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field
 from prompts.planner import planner_backstory
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command, interrupt
+from deepagents import create_deep_agent
+
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -51,7 +53,7 @@ architect_agent = create_agent(
     model=llm,
     system_prompt=architect_backstory(),
     tools=[],
-    response_format= ArchitectOutput
+    response_format=ArchitectOutput
 )
 
 def architect_node(state: GraphState):  # <-- Remove 'checkpointer'
@@ -74,10 +76,8 @@ def architect_node(state: GraphState):  # <-- Remove 'checkpointer'
     )
 
     # Get the full, updated history from the agent's response
-    new_messages = response['messages']
-    print('-------------------------')
-    print(new_messages)
-    
+    new_messages = response['messages'] 
+    # architect_response = response['messages'][-1].content
     structured_output: ArchitectOutput = response.get('structured_response')
 
     if structured_output:
@@ -101,7 +101,7 @@ def architect_node(state: GraphState):  # <-- Remove 'checkpointer'
         architect_response = response['messages'][-1].content
     
     # Return the new state. The checkpointer will automatically save this.
-    print("--- [Architect Node] DEBUG: Returning new state. ---")
+    print("--- [Architect Node] ---")
     return {
         'architect_response': architect_response,
         'architect_messages': new_messages,  # <-- This saves the memory
@@ -115,7 +115,7 @@ def architect_response_review_node(state: GraphState):
         "instruction": "Please respond to the agent... Type 'approve' if you want to proceed with the currently obtained goals, else mention your changes.",
         "content_to_review": output_to_review
     })
-    print("--- [Architect REVIEW NODE] DEBUG: Returning new state. ---")
+    print("--- [Architect REVIEW NODE] ---")
     return {'user_response': feedback}
 
 # def decision_node(state: GraphState):
@@ -141,22 +141,21 @@ def planner_node(state: GraphState):  # <-- Remove 'checkpointer'
 
     # Add the new user message
     if state["agent_node"] == 'architect':
-        print("first input to the planner agent")
-        input_msg = "Higher Level Objectives: \n\n" + state["architect_response"]
-        input_msg += "\n\n the above are the user goals to be achieved, generate an end-to end plan to make the goals ton reality."
-        # Start a new history for the planner
+        l=state["architect_response"].split("##")
+        input_msg = "Higher Level Objectives: \n\n"
+        input_msg+= l[1]
+        input_msg += "\n\n the above are the user goals to be achieved, generate an end-to end plan to make the goals to reality."
         messages = [HumanMessage(content=input_msg)]
     else:
-        print("including user response for modifications")
         input_msg = state["user_response"]
         messages.append(HumanMessage(content=input_msg))
-    print("\n--- [Planner Node] DEBUG: Invoking agent... ---")
+    
     response = planner_agent.invoke(
         {
             "messages": messages
         }
     )
-    print("--- [Planner Node] DEBUG: Agent invocation complete. ---") # <-- ADD THIS
+    print("\n--- [Planner Node] ---")
     # === REMOVE ALL MANUAL SAVING ===
     new_messages = response['messages']
     planner_response = response['messages'][-1].content
@@ -175,18 +174,38 @@ def planner_response_review_node(state: GraphState):
         "instruction": "Please respond to the agent... Type 'approve' if you want to proceed, else mention your changes.",
         "content_to_review": output_to_review
     })
-    print("--- [Planner REVIEW NODE] DEBUG: Returning new state. ---")
+    print("--- [Planner REVIEW NODE] ---")
     return {'user_response': feedback}
 
 def decision_node(state: GraphState):
     # (This function is fine, no changes needed)
     if state['user_response'].lower() == "approve":
-        print("--- [Decision Node] DEBUG: ENDING. ---")
+        print("--- [Decision Node : ENDING] ---")
         return END
     else:
-        print("--- [Decision Node] DEBUG: LOOPING. ---")
+        print("--- [Decision Node : LOOPING] ---")
         return "agent"
-    
+
+#----------------------------------------------------------------CODER AGENT----------------------------------------------------    
+coder_agent = create_agent(
+    model=llm,
+    system_prompt=planner_backstory(),
+    tools=[]
+)
+
+def coder_node(state: GraphState):
+    '''
+    this node will pass planner response to the coder agent
+    '''
+    planner_response = state['planner_response']
+    # coder_response = f"Coder agent received the following plan:\n{planner_response}\nGenerating code..."
+    coder_response = "Coder agent functionality is not yet implemented."
+    print("--- [Coder Node] ---")
+    return {
+        'final_planner_response': coder_response,
+        'agent_node': 'coder'
+    }
+
 #----------------------------------------------------------------GRAPH INVOKER----------------------------------------------------
 def graph_invoker():
     '''
@@ -202,6 +221,7 @@ def graph_invoker():
 
     builder.set_entry_point("architect_agent")
     builder.add_edge("architect_agent", "architect_review")
+    builder.add_edge("planner_agent", "planner_review")
     builder.add_conditional_edges(
         "architect_review",
         decision_node,
