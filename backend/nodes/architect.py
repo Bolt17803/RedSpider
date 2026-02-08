@@ -17,8 +17,7 @@ if TYPE_CHECKING:
 
 from prompts.architect import architect_backstory
 load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
+
 
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash", # Using 1.5-flash as 2.5 is not yet public
