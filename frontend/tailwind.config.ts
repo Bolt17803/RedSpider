@@ -9,19 +9,27 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        'warm-dark': '#1a1715',
-        'warm-darker': '#141210',
-        'warm-gray': '#2a2522',
-        'warm-beige': '#f5ebe0',
-        'warm-amber': '#f59e0b',
-        'warm-orange': '#fb923c',
+        'obsidian': '#050505',
+        'carbon': '#111111',
+        'carbon-light': '#1a1a1a',
+        'platinum': '#e5e5e5',
+        'platinum-muted': '#a3a3a3',
+        'platinum-dark': '#525252',
+        'gold-accent': '#d4af37',
+        // Keeping legacy names mapped to new colors gracefully to prevent breakages
+        'warm-dark': '#050505',
+        'warm-darker': '#000000',
+        'warm-gray': '#111111',
+        'warm-beige': '#e5e5e5',
+        'warm-amber': '#ffffff', // Mapped to stark white for a cleaner look
+        'warm-orange': '#d4af37', // Mapped to gold accent
         'warm-coral': '#fd7f6f',
         'warm-purple': '#a78bfa',
         'warm-teal': '#14b8a6',
       },
       animation: {
-        'pulse-soft': 'pulse-soft 3s ease-in-out infinite',
-        'glow-warm': 'glow-warm 2s ease-in-out infinite alternate',
+        'pulse-soft': 'pulse-soft 4s ease-in-out infinite',
+        'glow-platinum': 'glow-platinum 3s ease-in-out infinite alternate',
       },
       keyframes: {
         'pulse-soft': {
@@ -34,12 +42,12 @@ const config: Config = {
             transform: 'scale(1.02)',
           },
         },
-        'glow-warm': {
+        'glow-platinum': {
           '0%': {
-            boxShadow: '0 0 10px rgba(245, 158, 11, 0.3), 0 0 20px rgba(245, 158, 11, 0.2)',
+            boxShadow: '0 0 10px rgba(229, 229, 229, 0.1), 0 0 20px rgba(229, 229, 229, 0.05)',
           },
           '100%': {
-            boxShadow: '0 0 20px rgba(245, 158, 11, 0.5), 0 0 30px rgba(245, 158, 11, 0.3)',
+            boxShadow: '0 0 15px rgba(229, 229, 229, 0.2), 0 0 25px rgba(229, 229, 229, 0.1)',
           },
         },
       },

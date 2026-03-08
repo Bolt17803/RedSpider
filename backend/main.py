@@ -106,6 +106,7 @@ def start_workflow_endpoint(payload: InitRequest):
     init_state = {
         "user_response": payload.initial_query,
         "title": title,
+        "thread_id": thread_id
     }
     intermediate_state = graph.invoke(init_state, config)
 
@@ -247,61 +248,174 @@ async def workflow_status(user_response: UserRequest):
         has_streamed = False
         
         try:
+            # Only emit progress for actual orchestrator graph nodes
+            GRAPH_NODES = {
+                "init_deepagents", "architect_agent", "architect_review",
+                "planner_agent", "planner_review", "coder_agent",
+                "validation_agent", "validation_approval", "summarizer_agent", "human_response"
+            }
+            
+            # Agents whose LLM tokens + tool calls should be shown as live commentary in chat
+            COMMENTARY_NODES = {"coder_agent", "validation_agent", "summarizer_agent"}
+            
+            # Track current top-level graph node
+            current_node = "unknown"
+            
             # Use astream_events to stream tokens from LLM
             async for event in graph.astream_events(
                 Command(resume=user_response.query),
                 config,
-                version="v2" 
+                version="v1",
             ):
                 kind = event["event"]
-                # print(f"Event: {kind} | Node: {event.get('metadata', {}).get('langgraph_node')}")
+                metadata = event.get("metadata", {})
+                langgraph_node = metadata.get("langgraph_node", "")
                 
-                # Stream tokens from LLM calls (works for planner's streaming)
+                # Update current node from chain start events
+                if kind == "on_chain_start":
+                    node = langgraph_node or event.get("name", "")
+                    if node and node in GRAPH_NODES:
+                        current_node = node
+                        yield json.dumps({"progress": node, "status": "running"}) + "\n"
+                
+                if kind == "on_chain_end":
+                    node = langgraph_node or event.get("name", "")
+                    if node and node in GRAPH_NODES:
+                        yield json.dumps({"progress": node, "status": "completed"}) + "\n"
+                
+                # ── LLM token streaming ──────────────────────────────────────────
                 if kind == "on_chat_model_stream":
                     tags = event.get("tags", [])
-                    # print(f"Tags: {tags}")
+                    chunk_content = event["data"]["chunk"].content
+                    
+                    # Extract ONLY plain text — skip tool_use / input_json_delta objects
+                    # Anthropic sends chunk_content as a list of typed blocks when streaming
+                    # tool calls. We must discard those and only surface text.
+                    def _text_only(content) -> str:
+                        if isinstance(content, str):
+                            return content
+                        if isinstance(content, list):
+                            parts = []
+                            for item in content:
+                                if isinstance(item, dict):
+                                    if item.get("type") in ("text", "text_delta", "thinking"):
+                                        parts.append(item.get("text", ""))
+                                    # Intentionally skip tool_use, input_json_delta, etc.
+                                elif isinstance(item, str):
+                                    parts.append(item)
+                            return "".join(parts)
+                        return ""
+                    
                     if "planner_stream" in tags:
-                        chunk_content = event["data"]["chunk"].content
-                        if chunk_content:
+                        text = _text_only(chunk_content)
+                        if text:
                             has_streamed = True
-                            yield json.dumps({"token": chunk_content}) + "\n"
+                            yield json.dumps({"token": text}) + "\n"
+                    
+                    elif current_node in COMMENTARY_NODES:
+                        text = _text_only(chunk_content)
+                        if text:
+                            has_streamed = True
+                            yield json.dumps({
+                                "type": "agent_token",
+                                "node": current_node,
+                                "content": text
+                            }) + "\n"
+                
+                # ── Tool call streaming ──────────────────────────────────────────
+                if kind == "on_tool_start":
+                    tool_name = event.get("name", "")
+                    tool_input = event["data"].get("input", {})
+                    
+                    if tool_name == "execute_command":
+                        # Keep existing terminal_log behaviour for execute_command
+                        cmd = tool_input.get("command", "") if isinstance(tool_input, dict) else str(tool_input)
+                        wdir = tool_input.get("working_dir", "") if isinstance(tool_input, dict) else ""
+                        yield json.dumps({
+                            "terminal_log": f"🔧 Executing: {cmd}\n   In: {wdir}\n",
+                            "type": "command_start"
+                        }) + "\n"
+                    elif current_node in COMMENTARY_NODES and tool_name:
+                        # Only emit the tool name — suppress args to avoid dumping code/files
+                        yield json.dumps({
+                            "type": "agent_tool_start",
+                            "node": current_node,
+                            "tool": tool_name,
+                            "args": {}
+                        }) + "\n"
+                
+                if kind == "on_tool_end":
+                    tool_name = event.get("name", "")
+                    output = event["data"].get("output", "")
+                    
+                    if tool_name == "execute_command":
+                        # Keep existing terminal_log behaviour for execute_command
+                        yield json.dumps({
+                            "terminal_log": f"{output}\n",
+                            "type": "command_end"
+                        }) + "\n"
+                    elif current_node in COMMENTARY_NODES and tool_name:
+                        # Only emit tool name and a simple done marker — no output content
+                        yield json.dumps({
+                            "type": "agent_tool_end",
+                            "node": current_node,
+                            "tool": tool_name,
+                            "output": "\u2713 done"
+                        }) + "\n"
             
             # After streaming ends, get the current state to check for interrupts
-            # This is more reliable than trying to capture from events
             current_state = graph.get_state(config)
             state_values = current_state.values
             
             print(f"[Chat] State values keys: {state_values.keys() if state_values else 'None'}")
             print(f"[Chat] Has streamed: {has_streamed}")
             
-            # Check if there's an interrupt (used by architect agent)
-            if current_state.next:  # If there's a next step, we're paused at an interrupt
-                # Get interrupt info from the pending writes
+            # Check if there's an interrupt (architect/planner review OR tester command approval)
+            if current_state.next:
                 if hasattr(current_state, 'tasks') and current_state.tasks:
                     for task in current_state.tasks:
                         if hasattr(task, 'interrupts') and task.interrupts:
                             interrupt_value = task.interrupts[0].value
-                            content_to_review = interrupt_value.get('content_to_review')
-                            instruction = interrupt_value.get('instruction')
                             agent_node = state_values.get('agent_node', 'unknown')
                             
-                            print(f"[Chat] Found interrupt - agent: {agent_node}, content length: {len(content_to_review) if content_to_review else 0}")
+                            # Check if this is a command approval interrupt from tester
+                            interrupt_type = interrupt_value.get('type', '') if isinstance(interrupt_value, dict) else ''
                             
-                            if content_to_review:
+                            if interrupt_type == 'command_approval':
+                                instruction = interrupt_value.get('instruction', '')
+                                content_to_review = interrupt_value.get('content_to_review', '')
+                                
+                                print(f"[Chat] Command approval interrupt from {current_node} - command: {content_to_review[:100]}")
+                                
                                 yield json.dumps({
-                                    "token": content_to_review,
-                                    "agent_node": agent_node,
-                                    "instruction": instruction,
-                                    "is_interrupt": True
+                                    "token": instruction,
+                                    "agent_node": current_node,  # dynamic: tester_agent OR validation_agent
+                                    "instruction": "Type 'approve' to run the command or 'reject' to skip it.",
+                                    "is_interrupt": True,
+                                    "interrupt_type": "command_approval"
                                 }) + "\n"
+                            else:
+                                # Regular interrupt (architect/planner review)
+                                content_to_review = interrupt_value.get('content_to_review')
+                                instruction = interrupt_value.get('instruction')
+                                
+                                print(f"[Chat] Found interrupt - agent: {agent_node}, content length: {len(content_to_review) if content_to_review else 0}")
+                                
+                                if content_to_review:
+                                    yield json.dumps({
+                                        "token": content_to_review,
+                                        "agent_node": agent_node,
+                                        "instruction": instruction,
+                                        "is_interrupt": True
+                                    }) + "\n"
                             break
-            
-            # Send completion signal
-            agent_node = state_values.get('agent_node', 'unknown') if state_values else 'unknown'
-            yield json.dumps({
-                "done": True,
-                "agent_node": agent_node
-            }) + "\n"
+            else:
+                # No interrupt — send completion signal
+                agent_node = state_values.get('agent_node', 'unknown') if state_values else 'unknown'
+                yield json.dumps({
+                    "done": True,
+                    "agent_node": agent_node
+                }) + "\n"
 
         except Exception as e:
             print(f"Error in stream: {e}")
@@ -310,4 +424,3 @@ async def workflow_status(user_response: UserRequest):
             yield json.dumps({"error": str(e)}) + "\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
-   

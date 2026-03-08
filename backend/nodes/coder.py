@@ -1,74 +1,136 @@
-from typing import Any, Annotated, List, TypedDict
-import operator
+from typing import Any
 from dotenv import load_dotenv
 import os
-
-class GraphState(TypedDict):
-    '''
-    this is the state dictionary containing the inital user query, architect response
-    and the planner response
-    '''
-    title: str
-    agent_node: str
-    user_response: str
-    architect_response: str
-    planner_response: str
-    final_architect_response: str
-    final_planner_response: str
-    architect_messages: Annotated[list, operator.add]
-    planner_messages: Annotated[list, operator.add]
-    code_summary: str
-    validation_status: str
-    validation_comments: str
-    tester_status: str
-    tester_comments: str
-    errors: List[str]
+from models.state import GraphState
 
 load_dotenv()
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL")
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
 
 
 specialized_subagents = [
     {
         "name": "frontend-developer",
-        "description": "Specialized in React, Vue, Angular, HTML/CSS/JavaScript frontend development",
+        "description": "Expert in modern frontend architecture using React, Vue, Angular, TypeScript, HTML, CSS, and performance optimization",
         "system_prompt": """
-        You are a frontend specialist. Create clean, modern, responsive UI code.
-        Follow best practices for component architecture and state management.
-        """,
+You are a senior frontend architect building production-grade user interfaces.
+
+⚠️ MANDATORY FIRST STEP: Run ls("/") to see what already exists.
+
+FILE WRITING RULES:
+1. ALWAYS run ls("/") before writing ANY file.
+2. If a file already exists → use read_file() to check it, then edit_file() if changes needed.
+3. If a file does NOT exist → use write_file() to create it.
+4. NEVER recreate a file that already exists.
+5. NEVER create duplicate files in different paths.
+6. Use the EXACT folder structure specified in your task description.
+
+Your expertise:
+- React + TypeScript, component-driven architecture
+- Functional components, hooks, state management
+- Accessibility, responsiveness, performance
+- Mobile-first design, semantic HTML, modern CSS
+
+When implementing:
+1. ls("/") FIRST — see what exists
+2. Use write_file() for NEW files, edit_file() for EXISTING files
+3. Complete, production-ready code — no pseudo-code
+""",
         "tools": [],
-        "model": f"google_genai:{GEMINI_MODEL}",
+        "model": f"anthropic:{ANTHROPIC_MODEL}",
     },
+
     {
-        "name": "backend-developer", 
-        "description": "Specialized in API development, database design, server-side logic",
+        "name": "backend-developer",
+        "description": "Expert in scalable backend systems, API design, databases, and distributed architectures",
         "system_prompt": """
-        You are a backend specialist. Create robust APIs, efficient database schemas,
-        and scalable server-side logic. Follow RESTful principles and security best practices.
-        """,
+You are a senior backend engineer building production-grade server systems.
+
+⚠️ MANDATORY FIRST STEP: Run ls("/") to see what already exists.
+
+FILE WRITING RULES:
+1. ALWAYS run ls("/") before writing ANY file.
+2. If a file already exists → use read_file() to check it, then edit_file() if changes needed.
+3. If a file does NOT exist → use write_file() to create it.
+4. NEVER recreate a file that already exists.
+5. NEVER create duplicate files in different paths.
+6. Use the EXACT folder structure specified in your task description.
+
+Your expertise:
+- Robust APIs, clean architecture, RESTful/GraphQL design
+- Error handling, input validation
+- Authentication, authorization, rate limiting
+- Database schema design, queries, indexes, migrations
+
+When implementing:
+1. ls("/") FIRST — see what exists
+2. Use write_file() for NEW files, edit_file() for EXISTING files
+3. Complete, production-ready code — no pseudo-code
+""",
         "tools": [],
-        "model": f"google_genai:{GEMINI_MODEL}",
+        "model": f"anthropic:{ANTHROPIC_MODEL}",
     },
+
     {
         "name": "ml-engineer",
-        "description": "Specialized in machine learning, data processing, model training",
+        "description": "Expert in machine learning pipelines, model training, inference systems, and data engineering",
         "system_prompt": """
-        You are an ML specialist. Create efficient data pipelines, model training code,
-        and inference systems. Optimize for both accuracy and performance.
-        """,
+You are a senior ML engineer building production-grade ML systems.
+
+⚠️ MANDATORY FIRST STEP: Run ls("/") to see what already exists.
+
+FILE WRITING RULES:
+1. ALWAYS run ls("/") before writing ANY file.
+2. If a file already exists → use read_file() to check it, then edit_file() if changes needed.
+3. If a file does NOT exist → use write_file() to create it.
+4. NEVER recreate a file that already exists.
+5. NEVER create duplicate files in different paths.
+6. Use the EXACT folder structure specified in your task description.
+
+Your expertise:
+- Robust ML pipelines, training and inference workflows
+- Reproducible pipelines, feature engineering
+- Model evaluation, experiment tracking
+- Batch vs real-time inference, model serving
+
+When implementing:
+1. ls("/") FIRST — see what exists
+2. Use write_file() for NEW files, edit_file() for EXISTING files
+3. Complete, production-ready ML code — no notebooks
+""",
         "tools": [],
-        "model": f"google_genai:{GEMINI_MODEL}",
+        "model": f"anthropic:{ANTHROPIC_MODEL}",
     },
+
     {
         "name": "devops-engineer",
-        "description": "Specialized in Docker, CI/CD, deployment configurations, infrastructure",
+        "description": "Expert in infrastructure automation, cloud deployment, CI/CD, containers, and system reliability",
         "system_prompt": """
-        You are a DevOps specialist. Create containerization configs, CI/CD pipelines,
-        deployment scripts, and infrastructure as code.
-        """,
+You are a senior DevOps engineer building production-grade infrastructure.
+
+⚠️ MANDATORY FIRST STEP: Run ls("/") to see what already exists.
+
+FILE WRITING RULES:
+1. ALWAYS run ls("/") before writing ANY file.
+2. If a file already exists → use read_file() to check it, then edit_file() if changes needed.
+3. If a file does NOT exist → use write_file() to create it.
+4. NEVER recreate a file that already exists.
+5. NEVER create duplicate files in different paths.
+6. Use the EXACT folder structure specified in your task description.
+
+Your expertise:
+- Docker, Kubernetes, CI/CD pipelines
+- Infrastructure as Code, secrets management
+- Health checks, rollbacks, blue/green deployments
+- Logging, monitoring, observability
+
+When implementing:
+1. ls("/") FIRST — see what exists
+2. Use write_file() for NEW files, edit_file() for EXISTING files
+3. Complete, production-ready infrastructure configs
+""",
         "tools": [],
-        "model": f"google_genai:{GEMINI_MODEL}",
+        "model": f"anthropic:{ANTHROPIC_MODEL}",
     }
 ]
 
@@ -103,7 +165,7 @@ def coder_node(state: GraphState, coder_agent: Any):
                         2. Extract the "MISSING/INCOMPLETE FEATURES" section
                         3. Use write_todos() to create tasks for each missing/incomplete feature
                         4. Implement the missing features (delegate to subagents if complex)
-                        5. Update PROJECT_SUMMARY.md when complete
+                        5. Update PROJECT_SUMMARY.md when complete, do not create multiple markdown helper files.
 
                         """
         
@@ -123,68 +185,38 @@ def coder_node(state: GraphState, coder_agent: Any):
         
         message += """
                     IMPORTANT:
-                    - Use read_file() to examine existing code
-                    - Use edit_file() to update files
-                    - Use write_todos() to track your fixes
-                    - Update PROJECT_SUMMARY.md when all fixes are complete
-                    """
-                    # - Delegate complex fixes to specialized subagents if needed:
-                    #   • task(name="frontend-developer", ...) for UI fixes
-                    #   • task(name="backend-developer", ...) for API fixes
-                    #   • task(name="ml-engineer", ...) for ML/data fixes
-                    #   • task(name="devops-engineer", ...) for deployment fixes
+                    - Update PROJECT_SUMMARY.md when all fixes are complete do not create multiple markdown helper files.
+                    
+                   """
     else:
         # Initial invocation
         message =  f"""
                     Implement this complete project plan:
 
-                    {state['planner_response'][:1000]}
+                    {state['planner_response']}
 
-                    APPROACH:
-                    1. Read and understand the full plan
-                    2. Create a comprehensive todo list using write_todos()
-                    3. Break down the project into major components
-                    4. Coordinate all subagent outputs
-                    5. Ensure all files are properly integrated
-                    6. Create comprehensive PROJECT_SUMMARY.md with:
-                    - What was implemented
-                    - File structure overview
-                    - Setup instructions (dependencies, env setup)
-                    - Execution instructions
-                    - Required environment variables and where to set them
+                    CRITICAL: Think step by step and explain the reason of taking a particular decision
 
+                    IMPORTANT:
+                    - Ensure all files are properly integrated.
+                    - Only a single PROJECT_SUMMARY.md should be created to write all summaries.
+                    - Create comprehensive PROJECT_SUMMARY.md with these sections:
+                        -> What was implemented (project overview, features, tech stack, system architecture)
+                        -> File structure overview
+                        -> Setup instructions (dependencies, env setup)
+                        -> Execution instructions
+                        -> Required environment variables and where to set them
                     
                     Start implementation now.
                     """
         
-                    # 4. For each complex component, consider delegating to specialized subagents:
-                    # - Frontend work → task(name="frontend-developer", task="...")
-                    # - Backend APIs → task(name="backend-developer", task="...")
-                    # - ML/Data pipelines → task(name="ml-engineer", task="...")
-                    # - Docker/deployment → task(name="devops-engineer", task="...")
-                    # - Simple tasks → Handle yourself
-
-                    # Example subagent delegation for this OCR project:
-                    # - task(name="frontend-developer", task="Create React dashboard for viewing OCR results and uploading PDFs")
-                    # - task(name="backend-developer", task="Build FastAPI service with endpoints for PDF upload, processing status, and results retrieval")
-                    # - task(name="ml-engineer", task="Implement complete OCR pipeline: preprocessing, OCR inference, post-processing, and WER evaluation")
-                    # - task(name="devops-engineer", task="Create Docker Compose setup with all services, Redis, PostgreSQL, and proper networking")
-
-
-    
     result = coder_agent.invoke({
-        "messages": [{"role": "user", "content": f"this is the plan, write code for this:\n\n{state['planner_response'][:1000]}"}]
+        "messages": [{"role": "user", "content": message}]
     })
     # The result object is not necessarily a string; avoid slicing it directly
     # print("--- [Coder Node] DEBUG: First invocation result ---")
-    print(result)
+    # print(result)
     # print("--- [Coder Node] DEBUG: End first invocation result ---")
-    
-    # The coding agent will:
-    # 1. Use write_todos to create task list from validation/test comments
-    # 2. Delegate to subagents via task() calls
-    # 3. Each subagent writes to the shared filesystem
-    # 4. Main agent coordinates and creates PROJECT_SUMMARY.md
     
     # Extract summary from filesystem
     summary_result = coder_agent.invoke({
@@ -195,7 +227,7 @@ def coder_node(state: GraphState, coder_agent: Any):
     summary_text = extract_summary(summary_result)
     print(summary_text[:1000])
     return {
-        "code_summary": extract_summary(summary_result),
+        "code_summary": summary_text,
         "agent_node": "coder",
         "validation_status": "",
         "validation_comments": "",

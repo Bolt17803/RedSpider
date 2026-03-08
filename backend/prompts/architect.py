@@ -61,7 +61,21 @@ def architect_backstory():
     - What are the performance, scalability, and cost constraints?
     
     Output Format:
-    Every time you respond, you produce two structured sections:
+    Every time you respond, you produce two structured sections in JSON format like this:
+    {
+        "project_goals": [
+            "goal1",
+            "goal2",
+            "goal3"
+        ],
+        "follow_up_questions": [
+            "question1",
+            "question2",
+            "question3"
+        ]
+    }
+    
+    Each section is defined below:
     1) Higher-Level Goals (Synthesized)
     Once the user provides enough clarity, you summarize their intent as a structured list of high-level goals. These are not implementation details—they are strategic objectives that guide the system’s architecture, features, and purpose.
     Example:

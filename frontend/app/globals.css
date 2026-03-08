@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 245, 235, 224;
-  --background-start-rgb: 26, 23, 21;
-  --background-end-rgb: 20, 18, 16;
+  --foreground-rgb: 229, 229, 229;
+  --background-start-rgb: 5, 5, 5;
+  --background-end-rgb: 0, 0, 0;
 }
 
 * {
@@ -18,34 +18,24 @@ html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
-  background: linear-gradient(
-      135deg,
-      rgba(26, 23, 21, 1) 0%,
-      rgba(42, 37, 34, 1) 50%,
-      rgba(26, 23, 21, 1) 100%
-    );
+  background-color: #050505;
   color: rgb(var(--foreground-rgb));
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  background: linear-gradient(
-    135deg,
-    #1a1715 0%,
-    #2a2522 50%,
-    #1a1715 100%
-  );
+  background-color: #050505;
   height: 100vh;
   overflow: hidden;
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -53,34 +43,34 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(245, 158, 11, 0.2);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(245, 158, 11, 0.3);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* Glass morphism effect */
 .glass-strong {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* Markdown styling */
 .markdown-content {
-  @apply text-warm-beige/95 leading-relaxed;
+  @apply text-white/90 leading-relaxed font-light tracking-wide;
 }
 
 .markdown-content h1,
 .markdown-content h2 {
-  @apply text-warm-amber mt-4 mb-3 font-semibold;
+  @apply text-white mt-5 mb-4 font-normal tracking-tight;
 }
 
 .markdown-content h2 {
-  @apply text-base border-b border-warm-amber/20 pb-2;
+  @apply text-lg border-b border-white/10 pb-2;
 }
 
 .markdown-content ul,
@@ -89,15 +79,15 @@ body {
 }
 
 .markdown-content li {
-  @apply text-warm-beige/80;
+  @apply text-white/70;
 }
 
 .markdown-content code {
-  @apply bg-warm-gray/50 px-1.5 py-0.5 rounded text-warm-teal text-xs font-mono;
+  @apply bg-white/5 px-1.5 py-0.5 rounded text-white text-xs font-mono border border-white/10;
 }
 
 .markdown-content pre {
-  @apply bg-warm-darker p-3 rounded-md my-3 overflow-x-auto border border-warm-gray/30;
+  @apply bg-[#000000] p-4 rounded-lg my-4 overflow-x-auto border border-white/10 shadow-lg;
 }
 
 .markdown-content pre code {

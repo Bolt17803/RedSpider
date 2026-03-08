@@ -1,71 +1,104 @@
-from typing import TypedDict, Annotated, List
+from typing import Any, List
 import os
-import operator
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.agents import create_agent
+from langchain.agents.structured_output import ProviderStrategy
 from deepagents import create_deep_agent
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_anthropic import ChatAnthropic
 from pydantic import BaseModel, Field
+from typing import Literal
 from prompts.architect import architect_backstory
-from prompts.planner import planner_backstory
+from prompts.planner import planner_backstory_short_v2
 from prompts.coder import coder_backstory
 from prompts.validation import validation_backstory
-from prompts.tester import tester_backstory
-from tools.tester import execute_command
+from prompts.summarizer import summarizer_backstory
+from tools.validation import execute_command
 from pathlib import Path
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command, interrupt
 from nodes.coder import specialized_subagents, coder_node
-from nodes.validation import validation_node, should_continue_coding
-from nodes.tester import tester_node, should_continue_testing
+from nodes.validation import validation_node, validation_approval_node, should_continue_coding, should_continue_after_validation_approval, validation_subagents
+from nodes.summarizer import summarizer_node
 from deepagents.backends import FilesystemBackend
-from langchain.agents.middleware import TodoListMiddleware
+from langchain.agents.middleware import TodoListMiddleware, HumanInTheLoopMiddleware
 from deepagents.middleware.filesystem import FilesystemMiddleware
 from deepagents.middleware.subagents import SubAgentMiddleware
-from typing import Any
+from models.state import GraphState
 from functools import partial
+from langchain.chat_models import init_chat_model
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import ChatOllama
+from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
 GEMINI_MODEL = os.getenv("GEMINI_MODEL")
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL")
 PLAYGROUND_PATH = os.getenv("PLAYGROUND_PATH")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 coder_agent: Any = None
 validation_agent: Any = None
 tester_agent: Any = None
 
-class GraphState(TypedDict):
-    '''
-    this is the state dictionary containing the inital user query, architect response
-    and the planner response
-    '''
-    title: str
-    agent_node: str
-    user_response: str
-    architect_response: str
-    planner_response: str
-    final_architect_response: str
-    final_planner_response: str
-    architect_messages: Annotated[list, operator.add]
-    planner_messages: Annotated[list, operator.add]
-    code_summary: str
-    validation_status: str
-    validation_comments: str
-    tester_status: str
-    tester_comments: str
-    errors: List[str]
+
 
 llm = ChatGoogleGenerativeAI(
-    model=GEMINI_MODEL,  # Using 1.5-flash for better rate limits
+    model="gemini-2.5-flash",  # Using 1.5-flash for better rate limits
     temperature=0.2,
     max_retries=2,
 )
+# llm = ChatOllama(
+#     model="qwen2.5-coder:3b",
+#     temperature=0.2,
+#     max_retries=2,
+#     think=False
+# )
+# llm = ChatGroq(
+#     model_name="meta-llama/llama-prompt-guard-2-86m",
+#     temperature=0.2
+# )
+# llm = ChatOpenAI(
+#     api_key=OPENROUTER_API_KEY,
+#     base_url="https://openrouter.ai/api/v1",
+#     model="meta-llama/llama-3.3-70b-instruct",
+# )
 
-deepagent_llm = ChatGoogleGenerativeAI(
-    model=GEMINI_MODEL,  # Using 1.5-flash for better rate limits
-    temperature=0.4,
+# build a to-do list app; features to be task-creaation, editing, deleating, marking as complete ; user will be individual, use local_storage for data persistence, use type script nodejs for frontend, keep the design to attract the children from age 9-15 yrs; I do not need deployment code, just the main code
+
+# deepagent_llm = ChatGoogleGenerativeAI(
+#     model="gemini-2.5-pro",  # Using 1.5-flash for better rate limits
+#     temperature=0.2,
+#     max_retries=2,
+# )
+deepagent_llm = ChatAnthropic(
+    model=ANTHROPIC_MODEL,
+    temperature=0.3,
 )
+# deepagent_llm = ChatOllama(
+#     model="qwen2.5-coder:3b",
+#     temperature=0.3,
+#     think=False
+# )
+# deepagent_llm = ChatGroq(
+#     model_name="meta-llama/llama-prompt-guard-2-86m",
+#     temperature=0.3
+# )
+# deepagent_llm = init_chat_model(
+#     model="qwen/qwen3-coder",  # Specify the Qwen model
+#     model_provider="openai",
+#     base_url="https://openrouter.ai/api/v1",    
+#     api_key=OPENROUTER_API_KEY
+# )
+# deepagent_llm = ChatOpenAI(
+#     api_key=OPENROUTER_API_KEY,
+#     base_url="https://openrouter.ai/api/v1",
+#     model="meta-llama/llama-3.3-70b-instruct",
+# )
+
+
 #------------------------------------------------------------------ARCHITECT AGENT------------------------------------------------
 class ArchitectOutput(BaseModel):
     """Structured output for the architect agent."""
@@ -170,7 +203,7 @@ def architect_decision_node(state: GraphState):
 #----------------------------------------------------------------PLANNER AGENT----------------------------------------------------
 planner_agent = create_agent(
     model=llm,
-    system_prompt=planner_backstory(),
+    system_prompt=planner_backstory_short_v2(),
     tools=[]
 )
 
@@ -242,34 +275,54 @@ def planner_decision_node(state: GraphState):
 #----------------------------------------------------------------CODER, VALIDATION, TESTER DEEPAGENTs----------------------------------------------------    
 def create_coder_agent(path: str):
     global coder_agent
-    root_dir = Path(path).resolve().as_posix()  # Ensure absolute path in POSIX format
+    root_dir = str(Path(path).resolve())
     backend = FilesystemBackend(root_dir=root_dir, virtual_mode=True)
     coder_agent = create_deep_agent(
             model=deepagent_llm,
             system_prompt=coder_backstory(),#"you are an awesome coder, you have access to write, read tools, use them correctly for the task",#coder_backstory(),
             backend=backend,
+            subagents=specialized_subagents
         )
-        # subagents=specialized_subagents
+
+class ValidationResult(BaseModel):
+    """Structured output from the tester agent."""
+    test_status: Literal["VALIDATION_COMPLETE", "VALIDATION_INCOMPLETE"] = Field(
+        description="Overall validation status: VALIDATION_COMPLETE if all validation tests are passed, VALIDATION_INCOMPLETE if any validation test fails"
+    )
+    comments: str = Field(
+        description="Detailed validation results, error descriptions, or command output summary"
+    )
 
 def create_validation_agent(path: str):
     global validation_agent
-    root_dir = Path(path).resolve().as_posix()  # Ensure absolute path in POSIX format
+    root_dir = str(Path(path).resolve())
     backend = FilesystemBackend(root_dir=root_dir, virtual_mode=True)
     validation_agent = create_deep_agent(
             model=deepagent_llm,
             system_prompt=validation_backstory(),
-            backend=backend
+            backend=backend,
+            checkpointer=MemorySaver(),
+            subagents=validation_subagents,
+            tools=[execute_command],
+            middleware=[
+                HumanInTheLoopMiddleware(
+                    interrupt_on={
+                        "execute_command": True,
+                    },
+                    description_prefix="Approve this command execution:"
+                )
+            ]
         )
 
-def create_tester_agent(path: str):
-    global tester_agent
-    root_dir = Path(path).resolve().as_posix()  # Ensure absolute path in POSIX format
+
+def create_summarizer_agent(path: str):
+    global summarizer_agent
+    root_dir = str(Path(path).resolve())
     backend = FilesystemBackend(root_dir=root_dir, virtual_mode=True)
-    tester_agent = create_deep_agent(
+    summarizer_agent = create_deep_agent(
             model=deepagent_llm,
-            system_prompt=tester_backstory(),
-            tools = [execute_command],
-            backend=backend
+            system_prompt=summarizer_backstory(),
+            backend=backend,
         )
 
 #----------------------------------------------------------------HUMAN RESPONSE NODE----------------------------------------------------
@@ -301,7 +354,7 @@ def init_deepagents(state: GraphState):
     os.makedirs(workspace_path, exist_ok=True)
     create_coder_agent(workspace_path)
     create_validation_agent(workspace_path)
-    create_tester_agent(workspace_path)
+    create_summarizer_agent(workspace_path)
 #----------------------------------------------------------------GRAPH INVOKER----------------------------------------------------
 
 def graph_invoker(checkpointer=None):
@@ -318,8 +371,11 @@ def graph_invoker(checkpointer=None):
     builder.add_node("planner_agent", planner_node)
     builder.add_node("planner_review", planner_response_review_node)
     builder.add_node("coder_agent", lambda state: coder_node(state, coder_agent))
-    builder.add_node("validation_agent", lambda state: validation_node(state, validation_agent))
-    builder.add_node("tester_agent", lambda state: tester_node(state, tester_agent))
+    async def _validation_agent_node(state, config):
+        return await validation_node(state, validation_agent, config)
+    builder.add_node("validation_agent", _validation_agent_node)
+    builder.add_node("validation_approval", validation_approval_node)
+    builder.add_node("summarizer_agent", lambda state: summarizer_node(state, summarizer_agent))
     builder.add_node("human_response", human_response_node)
 
     builder.set_entry_point("init_deepagents")
@@ -327,6 +383,7 @@ def graph_invoker(checkpointer=None):
     builder.add_edge("architect_agent", "architect_review")
     builder.add_edge("planner_agent", "planner_review")
     builder.add_edge("coder_agent", "validation_agent")
+    builder.add_edge("summarizer_agent", "human_response")
     
     builder.add_conditional_edges(
         "architect_review",
@@ -351,15 +408,15 @@ def graph_invoker(checkpointer=None):
         should_continue_coding,
         {
             "code": "coder_agent",
-            "test": "tester_agent"
+            "summarize": "summarizer_agent",
+            "validation_approval": "validation_approval"
         }
     )
     builder.add_conditional_edges(
-        "tester_agent",
-        should_continue_testing,
+        "validation_approval",
+        should_continue_after_validation_approval,
         {
-            "human_response": "human_response",
-            "code": "coder_agent"
+            "validation": "validation_agent"
         }
     )
     builder.add_conditional_edges(
