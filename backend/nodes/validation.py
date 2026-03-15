@@ -28,142 +28,6 @@ def should_continue_after_validation_approval(state: GraphState) -> str:
     return "validation"
 
 
-# ── Subagent definitions ──────────────────────────────────────────────────────
-
-validation_subagents = [
-
-{
-"name": "structure-validator",
-"description": "Validates project structure and file presence",
-"system_prompt": """
-You validate the project structure.
-
-Tasks:
-1. Use ls() to inspect the repository.
-2. Ensure files required by the project plan exist.
-3. Detect missing critical files.
-
-Return:
-- files found
-- missing files
-- whether structure is correct
-
-If required files are missing → validation_status = INCOMPLETE
-""",
-"tools": [],
-"model": f"anthropic:{ANTHROPIC_MODEL}",
-},
-
-{
-"name": "plan-validator",
-"description": "Validates that the implemented code satisfies the plan",
-"system_prompt": """
-You validate whether the code actually implements the plan.
-
-Steps:
-1. Read project files using read_file().
-2. Compare plan requirements with implementation.
-3. Confirm feature existence.
-
-Return:
-- implemented features
-- missing features
-- partial implementations
-
-If any plan requirement is missing → validation_status = INCOMPLETE
-""",
-"tools": [],
-"model": f"anthropic:{ANTHROPIC_MODEL}",
-},
-
-{
-"name": "syntax-validator",
-"description": "Checks code syntax and import validity",
-"system_prompt": """
-You perform static code validation.
-
-Tasks:
-- detect syntax errors
-- detect invalid imports
-- detect undefined variables
-
-Use execute_command when necessary.
-
-Example commands:
-python -m py_compile file.py
-node file.js
-
-Rules:
-- syntax error → INCOMPLETE
-- missing external package → NOT a code error
-""",
-"tools": [execute_command],
-"model": f"anthropic:{ANTHROPIC_MODEL}",
-},
-
-{
-"name": "environment-validator",
-"description": "Creates environment and installs dependencies",
-"system_prompt": """
-You prepare the execution environment.
-
-Steps:
-1. Detect project type (Python / Node).
-2. Create environment.
-
-Python:
-python -m venv .venv
-
-Node:
-npm install
-
-3. Install dependencies.
-
-If dependency installation fails because:
-- package does not exist
-- incorrect import
-
-→ INCOMPLETE
-
-If packages require manual installation by user:
-→ report in summary
-""",
-"tools": [execute_command],
-"model": f"anthropic:{ANTHROPIC_MODEL}",
-},
-
-{
-"name": "runtime-validator",
-"description": "Runs the application and diagnoses runtime errors",
-"system_prompt": """
-You execute the project.
-
-Steps:
-1. Identify correct run command.
-2. Execute using execute_command.
-3. Capture output.
-
-Failure classification:
-
-CODE FAILURE:
-- syntax error
-- runtime exception
-- missing files
-
-→ INCOMPLETE
-
-ENVIRONMENT FAILURE:
-- missing API key
-- missing system dependency
-- missing external service
-
-→ COMPLETE but requires setup instructions.
-""",
-"tools": [execute_command],
-"model": f"anthropic:{ANTHROPIC_MODEL}",
-}
-
-]
 
 
 # ── Result extraction ─────────────────────────────────────────────────────────
@@ -268,18 +132,14 @@ CODE SUMMARY FROM CODING AGENT:
 - For execute_command(): The root workspace is: {workspace_path}
   Use FULL ABSOLUTE paths for working_dir. Explore with ls("/") first.
 
-⚠️ MANDATORY EXECUTION:
-- You MUST delegate to your subagents in order: structure-validator, plan-validator, syntax-validator, environment-validator, runtime-validator.
-- Each subagent MUST return: validation_status (COMPLETE/INCOMPLETE) and a summary.
-
-YOUR VALIDATION PROCESS:
-1. Delegate to structure-validator
-2. Delegate to plan-validator
-3. Delegate to syntax-validator (may need execute_command — wait for human approval)
-4. Delegate to environment-validator (may need execute_command — wait for human approval)
-5. Delegate to runtime-validator (may need execute_command — wait for human approval)
-6. Write validation_summary.md with results from all subagents
-7. Return final structured ValidationResult
+YOUR VALIDATION PROCESS (do ALL steps yourself):
+1. STRUCTURE: Use ls("/") to verify all expected files exist
+2. PLAN: Use read_file() to read code and verify it matches the plan
+3. SYNTAX: Check for syntax errors, use execute_command if needed
+4. ENVIRONMENT: Set up environment (npm install / pip install), use execute_command
+5. RUNTIME: Run the application using execute_command, check for errors
+6. Write validation_summary.md with results from all steps
+7. Return final result as JSON with status and comments
 
 Be thorough - READ THE ACTUAL CODE AND RUN IT, don't just rely on the summary!
 """

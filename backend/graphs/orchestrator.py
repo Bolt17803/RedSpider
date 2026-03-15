@@ -1,5 +1,6 @@
 from typing import Any, List
 import os
+import json
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -18,13 +19,13 @@ from tools.validation import execute_command
 from pathlib import Path
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command, interrupt
-from nodes.coder import specialized_subagents, coder_node
-from nodes.validation import validation_node, validation_approval_node, should_continue_coding, should_continue_after_validation_approval, validation_subagents
+from nodes.coder import coder_node
+from nodes.validation import validation_node, validation_approval_node, should_continue_coding, should_continue_after_validation_approval
 from nodes.summarizer import summarizer_node
-from deepagents.backends import FilesystemBackend
+from deepagents.backends import FilesystemBackend, CompositeBackend, StateBackend
 from langchain.agents.middleware import TodoListMiddleware, HumanInTheLoopMiddleware
 from deepagents.middleware.filesystem import FilesystemMiddleware
-from deepagents.middleware.subagents import SubAgentMiddleware
+
 from models.state import GraphState
 from functools import partial
 from langchain.chat_models import init_chat_model
@@ -123,11 +124,8 @@ def architect_node(state: GraphState):  # <-- Remove 'checkpointer'
     print("--- [Architect Node] STARTED ---")
     user_response = state.get('user_response')
 
-    # === REMOVE ALL MANUAL LOADING ===
-    # Get messages directly from state. Default to empty list if it's the first run.
-    messages = list(state.get('architect_messages', [])) # Create a copy!
-
-    # Add the new user message
+    messages = list(state.get('architect_messages', [])) 
+    
     messages.append(HumanMessage(content=user_response))
 
     response = architect_agent.invoke(
@@ -135,52 +133,31 @@ def architect_node(state: GraphState):  # <-- Remove 'checkpointer'
             "messages": messages
         }
     )
-    # Get the full, updated history from the agent's response
     full_history = response['messages'] 
-    
-    # Calculate delta: only return the new messages (User + AI)
-    # The 'messages' list we passed in had the new user message appended.
-    # The 'full_history' has that + AI response.
-    # We want to return the User msg + AI msg to be appended to the global state.
-    # But wait, 'state.get' gave us existing history.
-    # So we want full_history - existing_history.
     
     existing_len = len(state.get('architect_messages', []))
     new_messages = full_history[existing_len:] 
-    # architect_response = response['messages'][-1].content
     structured_output: ArchitectOutput = response.get('structured_response')
 
     if structured_output:
-        # (Your existing formatting logic is fine)
-        formatted_response = "## Project Goals\n"
-        if structured_output.project_goals:
-            for i, goal in enumerate(structured_output.project_goals, 1):
-                formatted_response += f"{i}. {goal}\n"
-        else:
-            formatted_response += "project goals are not properly defined. Answer the below follow-up questions\n"
-        
-        formatted_response += "\n## Follow-up Questions\n"
-        if structured_output.follow_up_questions:
-            for i, question in enumerate(structured_output.follow_up_questions, 1):
-                formatted_response += f"{i}. {question}\n"
-        else:
-            formatted_response += "No follow-up questions.\n"
-        
-        architect_response = formatted_response
+        architect_response = json.dumps({
+            "project_goals": structured_output.project_goals or [],
+            "follow_up_questions": structured_output.follow_up_questions or []
+        })
     else:
-        architect_response = response['messages'][-1].content
+        architect_response = json.dumps({
+            "project_goals": [],
+            "follow_up_questions": [response['messages'][-1].content]
+        })
     
-    # Return the new state. The checkpointer will automatically save this.
     print("--- [Architect Node] COMPLETED ---")
-    # print(f"Architect response: {architect_response}")
     return {
         'architect_response': architect_response,
-        'architect_messages': new_messages,  # <-- This saves the memory
+        'architect_messages': new_messages, 
         'agent_node': 'architect'
     }
 
 def architect_response_review_node(state: GraphState):
-    # (This function is fine, no changes needed)
     print("--- [Architect REVIEW NODE] STARTED ---")
     output_to_review = state["architect_response"]
     feedback = interrupt({
@@ -191,7 +168,6 @@ def architect_response_review_node(state: GraphState):
     return {'user_response': feedback}
 
 def architect_decision_node(state: GraphState):
-    # (This function is fine, no changes needed)
     if state['user_response'].lower() == "approve":
         workspace_path = os.path.join(PLAYGROUND_PATH, state["title"])
         architect_response_file_path= os.path.join(workspace_path, "architect_response.txt")
@@ -207,21 +183,22 @@ planner_agent = create_agent(
     tools=[]
 )
 
-def planner_node(state: GraphState):  # <-- Remove 'checkpointer'
+def planner_node(state: GraphState): 
     '''
     this node will pass user response to the agent, using conversational memory from state
     '''
-    # === REMOVE ALL MANUAL LOADING ===
-    # Get messages directly from state.
     print("--- [Planner Node] STARTED ---")
-    messages = list(state.get('planner_messages', [])) # Create a copy!
+    messages = list(state.get('planner_messages', [])) 
 
-    # Add the new user message
     if state["agent_node"] == 'architect':
-        l=state["architect_response"].split("##")
-        input_msg = "Higher Level Objectives: \n\n"
-        input_msg+= l[1]
-        input_msg += "\n\n the above are the user goals to be achieved, generate an end-to end plan to make the goals to reality."
+        architect_data = json.loads(state["architect_response"])
+        goals = architect_data.get("project_goals", [])
+        goals_text = "\n".join(f"{i+1}. {g}" for i, g in enumerate(goals))
+        input_msg = (
+            "Higher Level Objectives:\n\n"
+            f"{goals_text}\n\n"
+            "The above are the user goals to be achieved. Generate an end-to-end plan to make these goals a reality."
+        )
         messages = [HumanMessage(content=input_msg)]
     else:
         input_msg = state["user_response"]
@@ -234,17 +211,16 @@ def planner_node(state: GraphState):  # <-- Remove 'checkpointer'
         config={"tags": ["planner_stream"]}
     )
     print("--- [Planner Node] COMPLETED ---")
-    # === REMOVE ALL MANUAL SAVING ===
+
     full_history = response['messages']
     planner_response = response['messages'][-1].content
     
     existing_len = len(state.get('planner_messages', []))
     new_messages = full_history[existing_len:]
     
-    # Return the new state. The checkpointer will automatically save this.
     return {
         'planner_response': planner_response,
-        'planner_messages': new_messages,  # <-- This saves the memory
+        'planner_messages': new_messages, 
         'agent_node': 'planner'
     }
 
@@ -276,12 +252,25 @@ def planner_decision_node(state: GraphState):
 def create_coder_agent(path: str):
     global coder_agent
     root_dir = str(Path(path).resolve())
-    backend = FilesystemBackend(root_dir=root_dir, virtual_mode=True)
+    fs_backend = FilesystemBackend(root_dir=root_dir, virtual_mode=True)
+
+    composite_backend = lambda rt: CompositeBackend(
+        default=fs_backend,   # ← subagents inherit this as their default too
+        routes={}             # no special routes needed
+    )
     coder_agent = create_deep_agent(
             model=deepagent_llm,
-            system_prompt=coder_backstory(),#"you are an awesome coder, you have access to write, read tools, use them correctly for the task",#coder_backstory(),
-            backend=backend,
-            subagents=specialized_subagents
+            system_prompt=coder_backstory()+ f"""
+
+            IMPORTANT: Your workspace root is: {root_dir}
+            All files must be written using virtual paths starting with /
+            Examples:
+            write_file("/main.py", ...)           → saves to {root_dir}/main.py
+            write_file("/src/api/routes.py", ...) → saves to {root_dir}/src/api/routes.py
+            write_file("/PROJECT_SUMMARY.md", ...) → saves to {root_dir}/PROJECT_SUMMARY.md
+            Never use absolute OS paths or relative paths without a leading slash.
+            """,
+            backend=composite_backend,
         )
 
 class ValidationResult(BaseModel):
@@ -302,7 +291,6 @@ def create_validation_agent(path: str):
             system_prompt=validation_backstory(),
             backend=backend,
             checkpointer=MemorySaver(),
-            subagents=validation_subagents,
             tools=[execute_command],
             middleware=[
                 HumanInTheLoopMiddleware(
