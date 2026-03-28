@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 interface TodoItem {
   status: 'pending' | 'in_progress' | 'completed'
@@ -33,21 +33,13 @@ const STATUS_CONFIG: Record<string, {
 }
 
 export default function TodoList({ todos }: { todos: TodoItem[] }) {
-  const [maxCount, setMaxCount] = useState(0)
-
-  useEffect(() => {
-    if (todos && todos.length > maxCount) {
-      setMaxCount(todos.length)
-    }
-  }, [todos, maxCount])
-
   if (!todos || todos.length === 0) return null
 
-  const currentCompleted = todos.filter((t) => t.status === 'completed').length
-  const inferredCompleted = Math.max(0, maxCount - todos.length)
-  const totalCompleted = currentCompleted + inferredCompleted
-  const totalDisplayCount = Math.max(todos.length, maxCount)
-  const pct = totalDisplayCount ? Math.round((totalCompleted / totalDisplayCount) * 100) : 0
+  // FIX: use actual status counts — no more inferring from list length changes.
+  // The agent now reliably calls write_todos() after each task with real statuses.
+  const completed = todos.filter(t => t.status === 'completed').length
+  const total = todos.length
+  const pct = total ? Math.round((completed / total) * 100) : 0
 
   return (
     <div className="rounded-xl glass-premium p-5 space-y-4">
@@ -57,7 +49,7 @@ export default function TodoList({ todos }: { todos: TodoItem[] }) {
           TODO Tasks
         </span>
         <span className="text-[11px] text-white/40 font-mono tracking-widest">
-          {totalCompleted}/{totalDisplayCount}
+          {completed}/{total}
         </span>
       </div>
 
@@ -67,7 +59,7 @@ export default function TodoList({ todos }: { todos: TodoItem[] }) {
           <span>PROGRESS</span>
           <span>{pct}%</span>
         </div>
-        <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden shadow-inner flex">
+        <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden shadow-inner">
           <div
             className="h-full rounded-full bg-gradient-to-r from-electric-blue via-electric-cyan to-electric-cyan transition-all duration-700 ease-out shadow-[0_0_10px_rgba(6,182,212,0.5)]"
             style={{ width: `${pct}%` }}

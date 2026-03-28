@@ -31,22 +31,44 @@ def summarizer_node(state: GraphState, summarizer_agent: Any):
     """Read PROJECT_SUMMARY.md and validation_summary.md, then produce a final user-facing summary."""
     print("--- [Summarizer Node] STARTED ---")
 
+    validation_status = state.get('validation_status', 'unknown')
+    validation_comments = state.get('validation_comments', 'No validation comments available.')
+
     result = summarizer_agent.invoke({
         "messages": [{
             "role": "user",
             "content": f"""
-Please produce the final project summary for the user.
+Please produce the final project report for the user.
 
 ORIGINAL PLAN:
 {state['planner_response']}
 
-VALIDATION COMMENTS:
-{state.get('validation_comments', 'No validation comments available.')}
+VALIDATION STATUS: {validation_status}
 
-STEPS:
-1. Use read_file() to read PROJECT_SUMMARY.md
-2. Use read_file() to read validation_summary.md
-3. Combine them into a single comprehensive report for the user
+VALIDATION COMMENTS:
+{validation_comments}
+
+YOUR STEPS — follow this exactly:
+1. Use read_file("/PROJECT_SUMMARY.md") to read the coder's project documentation.
+   This file contains the setup instructions, file structure, and run commands.
+   
+2. Use read_file("/validation_summary.md") to read the validation results.
+   This file contains what the validation agent checked and any issues found.
+
+3. Combine BOTH files with the original plan into a single comprehensive report.
+
+4. The report MUST include:
+   - Project overview and features implemented
+   - Complete file structure
+   - DETAILED step-by-step local setup & run instructions
+     (copy exact commands and directories from PROJECT_SUMMARY.md)
+   - Environment variables needed and where to get them
+   - Validation results summary
+   - Any additional steps the user needs to take (external packages, API keys, etc.)
+   - Suggested next steps / improvements
+
+⚠️ The "How to Set Up & Run Locally" section is the MOST IMPORTANT part.
+The user needs exact commands with exact directories to get the project running.
 
 If a file doesn't exist, note it and work with the information you have.
 """
@@ -60,4 +82,5 @@ If a file doesn't exist, note it and work with the information you have.
     return {
         "final_summary": summary_text,
         "agent_node": "summarizer_agent",
+        "status": "completed"
     }

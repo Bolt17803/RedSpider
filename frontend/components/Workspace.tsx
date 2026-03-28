@@ -14,7 +14,7 @@ interface WorkspaceProps {
 }
 
 export default function Workspace({ onHome, projectTitle, initialThreadId, shouldLoadHistory }: WorkspaceProps) {
-    const [activeNode, setActiveNode] = useState<string | null>('architect_agent')
+    const [activeNode, setActiveNode] = useState<string | null>(null)
     const [threadId, setThreadId] = useState<string | null>(initialThreadId || null)
     const [showPlanViewer, setShowPlanViewer] = useState(false)
     const [planContent, setPlanContent] = useState('')
@@ -50,6 +50,12 @@ export default function Workspace({ onHome, projectTitle, initialThreadId, shoul
         if (!showTerminal) {
             setShowTerminal(true)
         }
+    }
+
+    const handleWorkflowComplete = (finalTodos: any[]) => {
+        // When the workflow completes, the active node should be cleared from the
+        // progress banner. The graph will show all nodes as completed.
+        setActiveNode(null)
     }
 
     return (
@@ -181,6 +187,7 @@ export default function Workspace({ onHome, projectTitle, initialThreadId, shoul
                                 currentViewingPlanContent={planContent}
                                 projectTitle={projectTitle}
                                 onTerminalLog={handleTerminalLog}
+                                onWorkflowComplete={handleWorkflowComplete}
                             />
                         </div>
                     </div>

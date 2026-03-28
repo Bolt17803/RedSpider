@@ -338,11 +338,25 @@ def review_human_response(state: GraphState):
 
 #----------------------------------------------------------------DEEPAGENT INITIALIZATION----------------------------------------------------
 def init_deepagents(state: GraphState):
+    """
+    Initialize workspace and deep-agent instances.
+    Also sets default values for the new state fields so LangGraph
+    doesn't encounter missing keys on the first state snapshot.
+    """
     workspace_path = os.path.join(PLAYGROUND_PATH, state["title"])
     os.makedirs(workspace_path, exist_ok=True)
     create_coder_agent(workspace_path)
     create_validation_agent(workspace_path)
     create_summarizer_agent(workspace_path)
+
+    # Return defaults for new fields — LangGraph merges this with existing state
+    return {
+        "status": "running",
+        "current_node": "init_deepagents",
+        "todos": [],
+        "errors": [],
+        "validation_approval_count": 0,
+    }
 #----------------------------------------------------------------GRAPH INVOKER----------------------------------------------------
 
 def graph_invoker(checkpointer=None):
@@ -358,12 +372,16 @@ def graph_invoker(checkpointer=None):
     builder.add_node("architect_review", architect_response_review_node)
     builder.add_node("planner_agent", planner_node)
     builder.add_node("planner_review", planner_response_review_node)
-    builder.add_node("coder_agent", lambda state: coder_node(state, coder_agent))
+    async def _coder_node(state):
+        return await coder_node(state, coder_agent)
+    builder.add_node("coder_agent", _coder_node)    
     async def _validation_agent_node(state, config):
         return await validation_node(state, validation_agent, config)
     builder.add_node("validation_agent", _validation_agent_node)
     builder.add_node("validation_approval", validation_approval_node)
-    builder.add_node("summarizer_agent", lambda state: summarizer_node(state, summarizer_agent))
+    async def _summarizer_agent_node(state, config):
+        return await summarizer_node(state, summarizer_agent)
+    builder.add_node("summarizer_agent", _summarizer_agent_node)
     builder.add_node("human_response", human_response_node)
 
     builder.set_entry_point("init_deepagents")

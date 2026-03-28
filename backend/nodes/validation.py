@@ -11,22 +11,26 @@ load_dotenv()
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL")
 PLAYGROUND_PATH = os.getenv("PLAYGROUND_PATH")
 
+# Maximum number of command approval cycles before force-failing validation
+MAX_APPROVAL_RETRIES = 5
+
 
 def should_continue_coding(state: GraphState) -> str:
     """Router after validation — called after validation_node completes."""
     if state.get("validation_pending_command"):
         # Inner agent needs command approval — route to approval node
         return "validation_approval"
-    elif "COMPLETE" in state.get("validation_status", ""):
+    elif state.get("validation_status", "") == "VALIDATION_COMPLETE":
+        # Exact match — only route to summarizer when validation fully passed
         return "summarize"
     else:
+        # VALIDATION_INCOMPLETE or any other status → back to coder for fixes
         return "code"
 
 
 def should_continue_after_validation_approval(state: GraphState) -> str:
     """Router after validation_approval_node — always returns to validation_node to continue."""
     return "validation"
-
 
 
 
@@ -65,7 +69,12 @@ def extract_validation_result(result) -> dict:
         content = str(content)
 
     content_lower = content.lower()
-    status = "VALIDATION_COMPLETE" if "validation_complete" in content_lower or "validation_passed" in content_lower else "VALIDATION_INCOMPLETE"
+    # Use exact status match — avoid substring issues
+    # (e.g., "validation_incomplete" must NOT match as "complete")
+    if '"status": "validation_complete"' in content_lower or '"status":"validation_complete"' in content_lower or 'validation_passed' in content_lower:
+        status = "VALIDATION_COMPLETE"
+    else:
+        status = "VALIDATION_INCOMPLETE"
     print(f"[Validation] WARNING: No structured output — defaulting to text parse: {status}")
     return {"status": status, "comments": content.strip()}
 
@@ -132,16 +141,72 @@ CODE SUMMARY FROM CODING AGENT:
 - For execute_command(): The root workspace is: {workspace_path}
   Use FULL ABSOLUTE paths for working_dir. Explore with ls("/") first.
 
-YOUR VALIDATION PROCESS (do ALL steps yourself):
-1. STRUCTURE: Use ls("/") to verify all expected files exist
-2. PLAN: Use read_file() to read code and verify it matches the plan
-3. SYNTAX: Check for syntax errors, use execute_command if needed
-4. ENVIRONMENT: Set up environment (npm install / pip install), use execute_command
-5. RUNTIME: Run the application using execute_command, check for errors
-6. Write validation_summary.md with results from all steps
-7. Return final result as JSON with status and comments
+════════════════════════════════════════════════
+⛔ MANDATORY: TWO-PHASE VALIDATION
+════════════════════════════════════════════════
 
-Be thorough - READ THE ACTUAL CODE AND RUN IT, don't just rely on the summary!
+PHASE 1 — CODE REVIEW (READ-ONLY):
+You must complete ALL of these checks using ONLY ls() and read_file().
+⛔ DO NOT call execute_command() during Phase 1.
+
+1. STRUCTURE: Use ls("/") to verify all expected files/directories exist
+
+2. GOAL COMPLETENESS — THIS IS YOUR MOST IMPORTANT CHECK:
+   You MUST read_file() on EVERY source file (not just a few).
+   For EACH goal in the original plan, find the file(s) that implement it and verify:
+   - The feature has REAL, WORKING code (not a stub)
+   - The component/function actually DOES something
+   
+   ⛔ THESE ARE ALL FAILURES — flag them as MISSING/INCOMPLETE:
+   - A file that just says: <h1>Title</h1> with a comment like "Add components here"
+   - A function body that is just `pass` or `return None` or `// TODO`
+   - A component that renders only a heading with no actual UI/logic
+   - A route handler that returns a hardcoded dummy response
+   - An empty class with no methods implemented
+   - Any placeholder text like "Coming soon", "TODO", "Add your code here"
+   
+   If the plan says "build a feed page with posts" and the code is just
+   `<div><h1>Feed</h1></div>` — that is INCOMPLETE. Flag it.
+
+3. IMPORTS: Check every import references a real package, no deprecated imports,
+   internal imports point to files that exist
+
+4. CODE LOGIC: Verify functions have real logic (not empty/pass), no obvious bugs,
+   CRUD operations are complete, UI wires to backend properly
+
+5. SYNTAX: Check for missing brackets, colons, quotes, indentation errors
+
+6. DEPENDENCY FILES: Verify requirements.txt / package.json exists and lists
+   all packages that are actually imported in the code
+
+If ANY issue is found in Phase 1:
+→ Write validation_summary.md with sections: MISSING/INCOMPLETE FEATURES,
+  IMPORT ERRORS, CODE LOGIC ERRORS, SYNTAX ERRORS, MISSING FILES
+→ Return VALIDATION_INCOMPLETE immediately. Do NOT proceed to Phase 2.
+
+PHASE 2 — RUNTIME VALIDATION (only if Phase 1 has ZERO issues):
+NOW you may use execute_command().
+
+⚠️ BEFORE running ANY command:
+1. Use read_file("/PROJECT_SUMMARY.md") to find the EXACT commands and EXACT directories
+2. Only run commands you are 100% certain are correct, in the correct directory
+3. If you are NOT 100% sure about a command or directory → skip it and note in summary
+
+Steps:
+1. Install deps — use the EXACT command and directory from PROJECT_SUMMARY.md
+   (e.g., npm install in the directory where package.json exists)
+2. Build/compile (npm run build / python -m py_compile) in the CORRECT directory
+3. Smoke test — run the app briefly, check for runtime errors
+
+⛔ DO NOT use: docker, docker-compose, docker build, kubectl, terraform
+   These are not available in this environment.
+
+Code bug in Phase 2 → VALIDATION_INCOMPLETE (send back to coder)
+Missing foreign/external package (system-level dependency, unavailable package) 
+  → This is NOT the coder's fault → VALIDATION_COMPLETE with detailed user instructions
+External setup issue (API keys, DB) → VALIDATION_COMPLETE with notes
+
+Be thorough — READ THE ACTUAL CODE, don't just rely on the summary!
 """
         }]
     }, config)
@@ -171,6 +236,24 @@ async def validation_node(state: GraphState, validation_agent: Any, outer_config
 
     pending_command = state.get("validation_pending_command")
     user_decision = state.get("validation_user_decision")  # Set by validation_approval_node
+    approval_count = state.get("validation_approval_count", 0)
+
+    # ── RETRY GUARD: Prevent infinite approval loops ──────────────────────────
+    if approval_count >= MAX_APPROVAL_RETRIES:
+        print(f"[Validation] ⛔ Hit max approval retries ({MAX_APPROVAL_RETRIES}). Force-failing validation.")
+        return {
+            "validation_pending_command": None,
+            "validation_user_decision": None,
+            "validation_approval_count": approval_count,
+            "validation_status": "VALIDATION_INCOMPLETE",
+            "validation_comments": (
+                f"Validation aborted: The validation agent requested command approval "
+                f"{approval_count} times without completing. This usually means the agent "
+                f"is stuck in a loop (e.g., trying to install a missing requirements.txt). "
+                f"The coder agent should fix the underlying issues before re-validation."
+            ),
+            "agent_node": "validation_agent"
+        }
 
     # Check if inner state exists (detect MemorySaver wipe/hot-reload)
     hitl_request, has_inner_interrupt = await _get_inner_interrupt(validation_agent, inner_config)
@@ -219,12 +302,14 @@ async def validation_node(state: GraphState, validation_agent: Any, outer_config
         # Inner agent is waiting for another command approval
         command_details = _format_action_requests(hitl_request)
         num_actions = _count_action_requests(hitl_request)
-        print(f"[Validation] Inner agent needs approval: {command_details[:200]}")
+        new_approval_count = approval_count + 1
+        print(f"[Validation] Inner agent needs approval ({new_approval_count}/{MAX_APPROVAL_RETRIES}): {command_details[:200]}")
 
         # Return with pending command — should_continue_coding will route to validation_approval
         return {
             "validation_pending_command": command_details,
             "validation_user_decision": None,  # Clear previous decision
+            "validation_approval_count": new_approval_count,
             "agent_node": "validation_agent"
         }
 
@@ -235,6 +320,7 @@ async def validation_node(state: GraphState, validation_agent: Any, outer_config
     return {
         "validation_pending_command": None,
         "validation_user_decision": None,
+        "validation_approval_count": 0,  # Reset for next validation cycle
         "validation_status": validation_result["status"],
         "validation_comments": validation_result["comments"],
         "agent_node": "validation_agent"
@@ -255,10 +341,11 @@ def validation_approval_node(state: GraphState):
     """
     print("--- [Validation Approval Node] STARTED ---")
     command_details = state.get("validation_pending_command", "")
+    approval_count = state.get("validation_approval_count", 0)
 
     user_decision = interrupt({
         "type": "command_approval",
-        "instruction": f"🔍 **Validator wants to run a command:**\n\n{command_details}\n\nType **approve** to allow or **reject** to skip.",
+        "instruction": f"🔍 **Validator wants to run a command ({approval_count}/{MAX_APPROVAL_RETRIES}):**\n\n{command_details}\n\nType **approve** to allow or **reject** to skip.",
         "content_to_review": command_details
     })
 

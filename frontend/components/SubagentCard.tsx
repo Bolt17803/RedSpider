@@ -125,6 +125,14 @@ export default function SubagentCard({ subagent }: { subagent: SubagentInfo }) {
               <span className="inline-block h-3 w-1 ml-1 animate-pulse bg-gold-accent align-bottom shadow-[0_0_8px_rgba(212,175,55,0.6)]" />
             )}
           </div>
+          {/* Show "thinking..." label while running to signal this is live reasoning */}
+          {subagent.status === 'running' && (
+            <div className="mt-2 flex items-center gap-1.5">
+              <span className="text-[9px] uppercase tracking-[0.2em] text-white/20 font-medium">
+                Thinking...
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

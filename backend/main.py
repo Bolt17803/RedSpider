@@ -109,7 +109,11 @@ def start_workflow_endpoint(payload: InitRequest):
     init_state = {
         "user_response": payload.initial_query,
         "title": title,
-        "thread_id": thread_id
+        "thread_id": thread_id,
+        "status": "running",
+        "current_node": None,
+        "todos": [],
+        "errors": [],
     }
     intermediate_state = graph.invoke(init_state, config)
 
@@ -240,7 +244,10 @@ def get_workflow_state(thread_id: str):
         "messages": frontend_messages,
         "active_node": active_node,
         "instruction": instruction,
-        "thread_id": thread_id
+        "thread_id": thread_id,
+        "status": state_values.get("status", "idle"),
+        "current_node": state_values.get("current_node", None),
+        "todos": state_values.get("todos", []),
     }
 
 import time as _time
@@ -462,23 +469,39 @@ async def workflow_status(user_response: UserRequest):
         config = {"configurable": {"thread_id": user_response.run_id}}
         state_tracker = {"current_node": "unknown", "has_streamed": False}
         node_groups = NodeGroups()
-        
+
         try:
             async for event in graph.astream_events(
-                Command(resume=user_response.query), config, version="v1"
+                Command(resume=user_response.query),
+                config,
+                version="v2",
             ):
                 for chunk in handle_event(event, state_tracker, node_groups):
                     yield chunk
-            
-            # Final state check (simplified)
+
+            # After the stream ends, check final state
             current_state = graph.get_state(config)
+
             if not current_state.next:
-                yield json.dumps({"done": True, "agent_node": current_state.values.get('agent_node', 'unknown')}) + "\n"
+                # Graph reached END — emit explicit completion event
+                # The frontend should listen for type="workflow_complete"
+                # rather than inferring from stream closure (which is a race condition)
+                final_status = current_state.values.get("status", "completed")
+                yield json.dumps({
+                    "type": "workflow_complete",
+                    "done": True,
+                    "status": final_status,
+                    "agent_node": current_state.values.get("agent_node", "unknown"),
+                    "current_node": current_state.values.get("current_node", None),
+                    "todos": current_state.values.get("todos", []),
+                }) + "\n"
             else:
+                # Graph is paused at an interrupt — emit interrupt details
                 for chunk in handle_interrupt(current_state, state_tracker["current_node"]):
                     yield chunk
-                
+
         except Exception as e:
-            yield json.dumps({"error": str(e)}) + "\n"
+            print(f"[workflow/chat] Error: {e}")
+            yield json.dumps({"type": "error", "error": str(e)}) + "\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
