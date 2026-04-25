@@ -5,6 +5,7 @@ import WorkflowGraph from '@/components/WorkflowGraph'
 import ChatInterface from '@/components/ChatInterface'
 import PlanViewer from '@/components/PlanViewer'
 import TerminalOutput from '@/components/TerminalOutput'
+import CodeViewer from '@/components/CodeViewer'
 
 interface WorkspaceProps {
     onHome: () => void
@@ -21,6 +22,8 @@ export default function Workspace({ onHome, projectTitle, initialThreadId, shoul
     const [isPlanStreaming, setIsPlanStreaming] = useState(false)
     const [terminalLogs, setTerminalLogs] = useState<string[]>([])
     const [showTerminal, setShowTerminal] = useState(false)
+    const [showCodeViewer, setShowCodeViewer] = useState(false)
+    const [isCodeViewerFullscreen, setIsCodeViewerFullscreen] = useState(false)
 
     // Handle plan updates from ChatInterface (during streaming)
     const handlePlanUpdate = (content: string, isStreaming: boolean) => {
@@ -53,99 +56,119 @@ export default function Workspace({ onHome, projectTitle, initialThreadId, shoul
     }
 
     const handleWorkflowComplete = (finalTodos: any[]) => {
-        // When the workflow completes, the active node should be cleared from the
-        // progress banner. The graph will show all nodes as completed.
         setActiveNode(null)
     }
 
     return (
-        <div className="flex h-screen bg-obsidian text-platinum font-sans overflow-hidden">
-            {/* Main Content Area */}
+        <div className="flex h-screen bg-pure-black text-text-primary font-sans overflow-hidden">
             <div className="flex-1 flex flex-col min-w-0">
-                {/* Header */}
-                <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 bg-obsidian/80 backdrop-blur-md z-10">
-                    <div className="flex items-center gap-4">
-                        <h1 className="text-sm font-light tracking-widest text-platinum-muted uppercase text-[11px]">Tarantula Workspace</h1>
+                {/* Application Header - Minimalist */}
+                <header className="h-14 border-b border-border-subtle flex items-center justify-between px-6 bg-charcoal-base z-10 flex-shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-6 h-6 rounded bg-accent-indigo text-pure-black font-heading font-bold text-xs">
+                            Tr
+                        </div>
+                        <h1 className="text-xs font-heading font-medium tracking-wide text-text-secondary">Tarantula</h1>
                         {projectTitle && (
                             <>
-                                <span className="text-white/10">|</span>
-                                <span className="text-sm font-normal tracking-wide text-platinum">{projectTitle}</span>
+                                <span className="text-border-subtle">/</span>
+                                <span className="text-xs font-medium text-text-primary">{projectTitle}</span>
                             </>
                         )}
+                        {threadId && (
+                            <span className="text-[10px] font-mono text-text-tertiary ml-2 px-1.5 py-0.5 rounded border border-border-subtle">
+                                {threadId.substring(0, 8)}
+                            </span>
+                        )}
                     </div>
-                    <div className="flex items-center gap-4">
-                        {/* Terminal toggle button */}
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={() => setShowTerminal(!showTerminal)}
-                            className={`flex items-center gap-2 text-xs px-4 py-2 rounded-full transition-all border ${showTerminal
-                                ? 'bg-white/10 border-white/20 text-white shadow-[0_0_10px_rgba(255,255,255,0.1)]'
-                                : 'bg-transparent border-white/5 hover:bg-white/5 hover:border-white/10 text-platinum-muted'
+                            className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-md transition-all border ${showTerminal
+                                ? 'bg-white/10 border-white/20 text-text-primary shadow-[0_0_12px_rgba(255,255,255,0.05)]'
+                                : 'bg-transparent border-transparent hover:bg-white/5 hover:border-border-subtle text-text-secondary'
                                 }`}
                             title="Toggle Terminal"
                         >
-                            {/* Terminal icon */}
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
-                            <span className="uppercase tracking-widest text-[10px] font-medium">Terminal</span>
+                            <span className="font-medium">Terminal</span>
                             {terminalLogs.length > 0 && !showTerminal && (
-                                <span className="ml-1 w-4 h-4 rounded-full bg-white text-[9px] font-bold text-obsidian flex items-center justify-center">
+                                <span className="ml-1 px-1 min-w-[16px] h-4 rounded-full bg-accent-indigo text-[9px] font-bold text-pure-black flex items-center justify-center">
                                     {terminalLogs.length > 9 ? '9+' : terminalLogs.length}
                                 </span>
                             )}
                         </button>
                         <button
-                            onClick={onHome}
-                            className="text-[10px] uppercase tracking-widest px-4 py-2 bg-transparent border border-transparent hover:border-white/10 hover:bg-white/5 rounded-full transition-all text-platinum-muted hover:text-white"
+                            onClick={() => setShowCodeViewer(!showCodeViewer)}
+                            className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-md transition-all border ${showCodeViewer
+                                ? 'bg-white/10 border-white/20 text-text-primary shadow-[0_0_12px_rgba(255,255,255,0.05)]'
+                                : 'bg-transparent border-transparent hover:bg-white/5 hover:border-border-subtle text-text-secondary'
+                                }`}
+                            title="Toggle Code Explorer"
                         >
-                            End Session
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                            </svg>
+                            <span className="font-medium">Code</span>
+                        </button>
+                        <div className="w-px h-4 bg-border-subtle mx-1"></div>
+                        <button
+                            onClick={onHome}
+                            className="text-xs font-medium px-3 py-1.5 bg-transparent rounded-md transition-all text-text-tertiary hover:text-text-primary hover:bg-white/5"
+                        >
+                            Exit
                         </button>
                     </div>
                 </header>
 
-                {/* Agent Progress Banner */}
+                {/* Subdued Status Banner */}
                 {activeNode && !['architect_agent', 'architect_review'].includes(activeNode) && (
-                    <div className="h-10 border-b border-white/5 flex items-center px-8 bg-carbon-light/50">
-                        <div className="flex items-center gap-4 max-w-4xl mx-auto w-full">
+                    <div className="h-8 border-b border-border-subtle flex items-center px-6 bg-charcoal-surface">
+                        <div className="flex items-center gap-3 text-xs">
                             <div className="relative flex h-1.5 w-1.5">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-40"></span>
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"></span>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-indigo opacity-70"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-accent-indigo"></span>
                             </div>
-                            <span className="text-[11px] uppercase tracking-widest font-medium text-platinum flex space-x-2">
-                                <span className="text-white/40">[{activeNode.split('_')[0]}]</span>
-                                <span>
-                                    {activeNode.includes('init') ? 'Initializing system...' :
-                                        activeNode.includes('planner') ? 'Architecting blueprint...' :
-                                            activeNode.includes('coder') ? 'Synthesizing implementation...' :
-                                                activeNode.includes('validation') ? 'Verifying codebase integrity...' :
-                                                    activeNode.includes('tester') ? 'Executing test suite...' :
-                                                        activeNode.includes('human') ? 'Awaiting human authorization...' :
-                                                            'Processing...'}
-                                </span>
+                            <span className="font-mono text-text-tertiary uppercase tracking-wider text-[10px]">[{activeNode.split('_')[0]}]</span>
+                            <span className="font-medium text-text-secondary">
+                                {activeNode.includes('init') ? 'Initializing system...' :
+                                    activeNode.includes('planner') ? 'Architecting blueprint...' :
+                                        activeNode.includes('coder') ? 'Synthesizing implementation...' :
+                                            activeNode.includes('validation') ? 'Verifying codebase integrity...' :
+                                                activeNode.includes('tester') ? 'Executing test suite...' :
+                                                    activeNode.includes('human') ? 'Awaiting human authorization...' :
+                                                        'Processing state transition...'}
                             </span>
                         </div>
                     </div>
                 )}
 
-                {/* Main Content */}
-                <div className="flex-1 flex gap-4 px-6 py-6 min-h-0 bg-obsidian">
-                    {/* Graph Panel - Fixed width */}
-                    <div className="w-[10%] flex-shrink-0 flex flex-col pt-2">
-                        <h2 className="text-[10px] font-medium text-white/30 uppercase tracking-[0.2em] mb-6 px-2">
-                            Topology
-                        </h2>
-                        <div className="flex-1 min-h-0">
+                {/* Main Content Panels */}
+                <div className="flex-1 flex gap-4 p-4 min-h-0 bg-charcoal-base">
+                    
+                    {/* Graph Topology Panel */}
+                    <div className="w-56 flex-shrink-0 flex flex-col pt-1 surface-panel rounded-lg p-3 overflow-hidden">
+                        <div className="flex items-center gap-2 mb-4 px-1">
+                            <svg className="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                            </svg>
+                            <h2 className="text-xs font-heading font-medium text-text-secondary tracking-wide uppercase">
+                                Execution Pipeline
+                            </h2>
+                        </div>
+                        <div className="flex-1 min-h-0 overflow-hidden px-1">
                             <WorkflowGraph activeNode={activeNode} />
                         </div>
                     </div>
 
-                    {/* Plan Viewer Panel - slide in/out */}
-                    <div
-                        className={`flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out overflow-hidden ${showPlanViewer ? 'w-[30%] opacity-100' : 'w-0 opacity-0'
-                            }`}
-                    >
+                    {/* Dynamic Panels Container */}
+                    <div className="flex-1 min-h-0 min-w-0 flex gap-4">
+                        
+                        {/* Plan Viewer Panel */}
                         {showPlanViewer && (
-                            <div className="flex-1 min-h-0">
+                            <div className="w-1/3 min-w-0 flex flex-col surface-panel rounded-lg overflow-hidden animate-fade-in-up transition-all">
                                 <PlanViewer
                                     content={planContent}
                                     isStreaming={isPlanStreaming}
@@ -153,42 +176,55 @@ export default function Workspace({ onHome, projectTitle, initialThreadId, shoul
                                 />
                             </div>
                         )}
-                    </div>
 
-                    {/* Terminal Panel - slide in/out (like plan viewer) */}
-                    <div
-                        className={`flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out overflow-hidden ${showTerminal ? 'w-[28%] opacity-100' : 'w-0 opacity-0'
-                            }`}
-                    >
+                        {/* Code Explorer Panel */}
+                        {showCodeViewer && projectTitle && (
+                            <div className={`${isCodeViewerFullscreen ? 'absolute inset-4 z-50' : 'w-[45%] min-w-[500px]'} flex flex-col surface-panel rounded-lg overflow-hidden animate-fade-in-up transition-all shadow-2xl`}>
+                                <CodeViewer
+                                    projectId={projectTitle}
+                                    onClose={() => {
+                                        setShowCodeViewer(false)
+                                        setIsCodeViewerFullscreen(false)
+                                    }}
+                                    isExpanded={isCodeViewerFullscreen}
+                                    onToggleExpand={() => setIsCodeViewerFullscreen(!isCodeViewerFullscreen)}
+                                />
+                            </div>
+                        )}
+
+                        {/* Terminal Panel */}
                         {showTerminal && (
-                            <div className="flex-1 min-h-0">
+                            <div className="w-1/3 min-w-0 flex flex-col surface-panel rounded-lg overflow-hidden animate-fade-in-up transition-all">
                                 <TerminalOutput
                                     logs={terminalLogs}
                                     onClose={() => setShowTerminal(false)}
                                 />
                             </div>
                         )}
-                    </div>
 
-                    {/* Chat Panel - Flexible */}
-                    <div className="flex-1 min-h-0 flex flex-col">
-                        <div className="glass-strong rounded-xl h-full flex flex-col overflow-hidden">
-                            <ChatInterface
-                                activeNode={activeNode}
-                                setActiveNode={setActiveNode}
-                                threadId={threadId}
-                                setThreadId={setThreadId}
-                                shouldLoadHistory={shouldLoadHistory}
-                                onPlanUpdate={handlePlanUpdate}
-                                onViewPlan={handleViewPlan}
-                                onClosePlanViewer={handleClosePlanViewer}
-                                isPlanViewerOpen={showPlanViewer}
-                                isPlannerStreaming={isPlanStreaming}
-                                currentViewingPlanContent={planContent}
-                                projectTitle={projectTitle}
-                                onTerminalLog={handleTerminalLog}
-                                onWorkflowComplete={handleWorkflowComplete}
-                            />
+                        {/* Essential Chat Interface Panel */}
+                        <div className="flex-1 min-w-0 flex flex-col surface-panel rounded-lg overflow-hidden relative">
+                            {/* Subtle embedded header gradient for depth */}
+                            <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none z-0"></div>
+                            
+                            <div className="relative z-10 flex-1 min-h-0 flex flex-col">
+                                <ChatInterface
+                                    activeNode={activeNode}
+                                    setActiveNode={setActiveNode}
+                                    threadId={threadId}
+                                    setThreadId={setThreadId}
+                                    shouldLoadHistory={shouldLoadHistory}
+                                    onPlanUpdate={handlePlanUpdate}
+                                    onViewPlan={handleViewPlan}
+                                    onClosePlanViewer={handleClosePlanViewer}
+                                    isPlanViewerOpen={showPlanViewer}
+                                    isPlannerStreaming={isPlanStreaming}
+                                    currentViewingPlanContent={planContent}
+                                    projectTitle={projectTitle}
+                                    onTerminalLog={handleTerminalLog}
+                                    onWorkflowComplete={handleWorkflowComplete}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

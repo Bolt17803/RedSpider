@@ -38,7 +38,6 @@ export default function HomeLanding({ onStart, onOpen }: HomeLandingProps) {
         }
     }
 
-    // Handle New Project submission
     const handleStartProject = () => {
         if (!projectName.trim()) return
         onStart(projectName)
@@ -46,122 +45,138 @@ export default function HomeLanding({ onStart, onOpen }: HomeLandingProps) {
     }
 
     return (
-        <main className="h-screen overflow-hidden bg-obsidian flex flex-col items-center justify-center relative font-sans">
-            {/* Animated Ambient Background - Luxurious Aurora/Orbs effect */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[-20%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-electric-blue/5 blur-[120px] animate-float-slow mix-blend-screen"></div>
-                <div className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] rounded-full bg-gold-accent/5 blur-[150px] animate-float-slower mix-blend-screen"></div>
-                <div className="absolute top-[20%] right-[10%] w-[30vw] h-[30vw] rounded-full bg-electric-cyan/5 blur-[100px] animate-float-slow mix-blend-screen" style={{ animationDelay: '2s' }}></div>
-                <div className="absolute inset-0 bg-obsidian/40 backdrop-blur-[50px]"></div>
+        <main className="h-screen overflow-hidden bg-pure-black flex flex-col items-center justify-center relative font-sans text-text-primary px-6">
+            
+            {/* Minimalist Ambient Spotlight Background */}
+            <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(99,102,241,0.08)_0%,transparent_70%)] opacity-80 z-0"></div>
                 
-                {/* Subtle refined grid */}
-                <div className="absolute inset-0"
-                    style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.03) 1px, transparent 0)', backgroundSize: '48px 48px' }}>
-                </div>
+                {/* Aurora Mesh Glows */}
+                <div className="absolute top-[-10%] left-[20%] w-[50vw] h-[50vh] bg-accent-indigo/10 blur-[100px] rounded-full mix-blend-screen animate-mesh-1 z-0"></div>
+                <div className="absolute top-[10%] right-[10%] w-[40vw] h-[40vh] bg-accent-violet/10 blur-[100px] rounded-full mix-blend-screen animate-mesh-2 z-0"></div>
+                <div className="absolute bottom-[20%] left-[30%] w-[60vw] h-[30vh] bg-accent-silver/5 blur-[120px] rounded-full mix-blend-screen animate-mesh-3 z-0"></div>
+
+                {/* Subtle Grid overlay for texture */}
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_100%_100%_at_50%_0%,#000_10%,transparent_80%)] z-0"></div>
             </div>
 
-            <div className="flex flex-col items-center z-10 p-8 text-center max-w-2xl">
-                <div className="relative mb-6">
-                    <h1 className="text-7xl md:text-8xl font-thin tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-b from-white via-platinum to-platinum-dark drop-shadow-2xl">
-                        TARANTULA
-                    </h1>
-                    <div className="absolute inset-0 bg-gradient-to-tr from-gold-accent/0 via-gold-accent/10 to-transparent blur-2xl z-[-1]"></div>
+            <div className="flex flex-col items-center z-10 w-full max-w-3xl text-center">
+                
+                {/* Brand / Headline Section */}
+                <div className="mb-4 animate-fade-in-up stagger-1">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 backdrop-blur-md mb-8">
+                        <span className="w-2 h-2 rounded-full bg-accent-indigo animate-pulse-subtle"></span>
+                        <span className="text-xs font-medium tracking-wide text-text-secondary uppercase">Platform V1.0</span>
+                    </div>
                 </div>
-                <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-gold-accent/40 to-transparent mb-10 rounded-full"></div>
-                <p className="text-lg md:text-xl text-platinum-muted font-light tracking-[0.3em] uppercase mb-16 text-glow">
-                    AI Agent Workflow System
+
+                <h1 className="text-5xl md:text-7xl font-heading font-medium tracking-tight text-transparent bg-clip-text bg-gradient-metallic mb-6 animate-fade-in-up stagger-2">
+                    Build Faster with Tarantula
+                </h1>
+                
+                <p className="text-lg md:text-xl text-text-secondary font-sans leading-relaxed max-w-xl mx-auto mb-12 animate-fade-in-up stagger-3">
+                    The enterprise-grade autonomous coding platform. Ship MVPs from natural language to production code with unprecedented velocity.
                 </p>
 
-                <div className="flex flex-col sm:flex-row gap-6 w-full max-w-lg justify-center relative">
-                    <button
-                        className="px-8 py-4 text-sm uppercase tracking-[0.2em] font-medium text-platinum flex-1 border border-white/10 rounded-full hover:bg-white/[0.03] hover:border-gold-accent/40 transition-all duration-500 shadow-[0_0_0_rgba(212,175,55,0)] hover:shadow-[0_0_20px_rgba(212,175,55,0.15)] relative overflow-hidden group"
-                        onClick={handleOpenHistory}
-                        disabled={isLoadingDetails}
-                    >
-                        <span className="relative z-10">{isLoadingDetails ? 'Loading...' : 'Open Project'}</span>
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gold-accent/5 to-transparent -translate-x-full group-hover:animate-[aurora_3s_linear_infinite] pointer-events-none"></div>
-                    </button>
+                {/* Primary CTA Buttons */}
+                <div className="flex flex-col sm:flex-row gap-4 w-full justify-center items-center animate-fade-in-up stagger-4">
                     <button
                         onClick={() => setShowNameModal(true)}
-                        className="px-8 py-4 text-sm uppercase tracking-[0.2em] font-medium text-obsidian bg-gradient-to-br from-platinum to-platinum-muted flex-1 rounded-full hover:from-white hover:to-platinum transition-all duration-500 hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] transform hover:-translate-y-0.5"
+                        className="w-full sm:w-auto px-8 py-3.5 text-sm font-medium text-pure-black bg-text-primary rounded-lg hover:bg-white/90 transition-all duration-300 shadow-[0_0_24px_rgba(255,255,255,0.1)] hover:shadow-[0_0_32px_rgba(255,255,255,0.2)] transform hover:scale-[0.98]"
                     >
-                        New Project
+                        Start New Project
+                    </button>
+                    <button
+                        onClick={handleOpenHistory}
+                        disabled={isLoadingDetails}
+                        className="w-full sm:w-auto px-8 py-3.5 text-sm font-medium text-text-primary bg-charcoal-elevated border border-border-subtle rounded-lg hover:border-border-focus hover:bg-white/[0.03] transition-all duration-300"
+                    >
+                        {isLoadingDetails ? 'Loading...' : 'Open Workspace'}
                     </button>
                 </div>
-
-                <p className="mt-16 text-xs text-white/20 font-mono tracking-widest">
-                    V1.0.0 — LOCAL
-                </p>
             </div>
 
-            {/* Name Input Modal */}
+            {/* Name Input Modal - High-End Aesthetic */}
             {showNameModal && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-obsidian/90 backdrop-blur-xl transition-all duration-500">
-                    <div className="glass-premium p-10 rounded-2xl w-full max-w-md relative overflow-hidden transform transition-all scale-100 opacity-100 animate-in fade-in zoom-in-95 duration-300">
-                        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-gold-accent/40 to-transparent"></div>
-                        <h3 className="text-xl font-light tracking-[0.2em] text-platinum mb-8 text-center drop-shadow-md">INITIALIZE PROJECT</h3>
-                        <div className="relative mb-10">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-pure-black/80 backdrop-blur-sm animate-fade-in-up">
+                    <div className="surface-panel w-full max-w-md rounded-xl p-8 transform transition-all">
+                        <h3 className="text-xl font-heading font-medium text-text-primary mb-2">Initialize Project</h3>
+                        <p className="text-sm text-text-secondary mb-6">Enter a designation for your new workspace.</p>
+                        
+                        <div className="relative mb-8 group">
                             <input
                                 type="text"
                                 value={projectName}
                                 onChange={(e) => setProjectName(e.target.value)}
-                                placeholder="Enter project designation..."
-                                className="w-full bg-transparent border-b border-white/10 px-4 py-3 text-center text-platinum placeholder-white/20 focus:outline-none focus:border-gold-accent/50 transition-colors font-light tracking-wide text-lg relative z-10"
+                                placeholder="e.g., e-commerce-mvp"
+                                className="w-full bg-charcoal-base border border-border-subtle rounded-lg px-4 py-3 text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent-indigo focus:ring-1 focus:ring-accent-indigo transition-all font-sans text-base"
                                 autoFocus
                                 onKeyDown={(e) => e.key === 'Enter' && handleStartProject()}
                             />
-                            <div className="absolute bottom-0 left-0 h-[1px] bg-gradient-to-r from-transparent via-gold-accent to-transparent w-full scale-x-0 opacity-0 transition-all duration-500 peer-focus:scale-x-100 peer-focus:opacity-100"></div>
                         </div>
-                        <div className="flex gap-5 justify-center">
+                        
+                        <div className="flex gap-3 justify-end">
                             <button
                                 onClick={() => setShowNameModal(false)}
-                                className="px-6 py-3 text-xs tracking-[0.2em] uppercase text-white/40 hover:text-white transition-colors"
+                                className="px-5 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary rounded-lg hover:bg-white/5 transition-all"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleStartProject}
                                 disabled={!projectName.trim()}
-                                className="px-10 py-3 text-xs tracking-[0.2em] uppercase bg-gradient-to-r from-platinum to-platinum-muted text-obsidian font-medium rounded-full hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] disabled:opacity-20 disabled:shadow-none transition-all duration-300 transform hover:-translate-y-0.5 disabled:transform-none"
+                                className="px-5 py-2.5 text-sm font-medium bg-text-primary text-pure-black rounded-lg disabled:opacity-50 hover:bg-white/90 transition-all"
                             >
-                                Launch
+                                Continue
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* History Modal */}
+            {/* History Modal - High-End Aesthetic */}
             {showHistoryModal && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-obsidian/90 backdrop-blur-xl transition-all duration-500">
-                    <div className="glass-premium p-10 rounded-2xl w-full max-w-xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] max-h-[85vh] flex flex-col relative overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-                        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-electric-blue/40 to-transparent"></div>
-                        <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-6">
-                            <h3 className="text-xl font-light tracking-[0.2em] text-platinum drop-shadow-md">SAVED PROJECTS</h3>
-                            <button onClick={() => setShowHistoryModal(false)} className="text-white/30 hover:text-white hover:rotate-90 transition-all duration-300">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-pure-black/80 backdrop-blur-sm animate-fade-in-up">
+                    <div className="surface-panel w-full max-w-2xl rounded-xl max-h-[80vh] flex flex-col shadow-2xl">
+                        
+                        <div className="flex justify-between items-center px-8 py-6 border-b border-border-subtle">
+                            <div>
+                                <h3 className="text-lg font-heading font-medium text-text-primary">Recent Workspaces</h3>
+                                <p className="text-sm text-text-tertiary mt-1">Select a workspace to resume execution</p>
+                            </div>
+                            <button onClick={() => setShowHistoryModal(false)} className="p-2 text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-md transition-all">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
                         </div>
 
-                        <div className="overflow-y-auto flex-1 min-h-0 space-y-2 pr-3 custom-scrollbar">
+                        <div className="overflow-y-auto flex-1 p-4 space-y-2 custom-scrollbar">
                             {projects.length === 0 ? (
-                                <p className="text-white/30 text-center py-16 font-light tracking-[0.1em] text-sm">No archives found.</p>
+                                <div className="py-20 text-center flex flex-col items-center">
+                                    <div className="w-12 h-12 rounded-full bg-white/5 mb-4 flex items-center justify-center">
+                                        <svg className="w-6 h-6 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                        </svg>
+                                    </div>
+                                    <p className="text-text-secondary text-sm font-medium">No workspaces found</p>
+                                    <p className="text-text-tertiary text-xs mt-1">Start a new project to see it here.</p>
+                                </div>
                             ) : (
-                                projects.map((p) => (
+                                projects.map((p, i) => (
                                     <button
                                         key={p.id}
                                         onClick={() => onOpen(p.id, p.title)}
-                                        className="w-full text-left px-6 py-5 rounded-xl border border-white/[0.03] hover:border-electric-blue/30 hover:bg-white/[0.04] transition-all duration-300 group flex justify-between items-center hover:shadow-[0_0_15px_rgba(59,130,246,0.1)] relative overflow-hidden"
+                                        className="surface-panel-interactive w-full text-left px-5 py-4 rounded-lg flex items-center justify-between group"
+                                        style={{ animationDelay: `${(i % 5) * 50}ms` }}
                                     >
-                                        <div className="font-light tracking-wide text-platinum/90 group-hover:text-white transition-colors truncate text-lg">
-                                            {p.title}
+                                        <div className="flex flex-col">
+                                            <span className="font-heading font-medium text-text-primary group-hover:text-accent-indigo transition-colors">{p.title}</span>
+                                            <span className="text-xs font-mono text-text-tertiary mt-1">ID: {p.id.substring(0, 8)}</span>
                                         </div>
-                                        <div className="text-[11px] text-white/30 font-mono tracking-[0.15em] bg-black/40 px-3 py-1 rounded-full group-hover:text-electric-blue/80 transition-colors">
-                                            {p.id.substring(0, 8)}
-                                        </div>
-                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-electric-blue/5 to-transparent -translate-x-full group-hover:animate-[aurora_2s_linear_infinite] pointer-events-none"></div>
+                                        <svg className="w-5 h-5 text-text-tertiary group-hover:text-accent-indigo transition-colors transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+                                        </svg>
                                     </button>
                                 ))
                             )}

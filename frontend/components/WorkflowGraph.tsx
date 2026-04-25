@@ -11,8 +11,6 @@ interface NodeData {
   label: string
 }
 
-// The pipeline in order — used to determine which nodes are "completed"
-// (everything before the current active node in this sequence)
 const nodes: NodeData[] = [
   { id: 'architect_agent', label: 'Architect' },
   { id: 'planner_agent',   label: 'Planner'   },
@@ -22,7 +20,6 @@ const nodes: NodeData[] = [
   { id: 'human_response',  label: 'Review'    },
 ]
 
-// Maps every possible backend node name → graph node id
 const NODE_MAP: Record<string, string> = {
   architect:                        'architect_agent',
   architect_review:                 'architect_agent',
@@ -49,12 +46,11 @@ export default function WorkflowGraph({ activeNode }: WorkflowGraphProps) {
   if (!mounted) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-white/30 text-xs tracking-widest uppercase">Loading...</div>
+        <div className="text-text-tertiary text-xs tracking-widest uppercase animate-pulse">Loading Pipeline...</div>
       </div>
     )
   }
 
-  // Resolve the backend node name to a graph node id
   const resolvedActiveId = activeNode
     ? (NODE_MAP[activeNode] ?? activeNode)
     : null
@@ -71,114 +67,63 @@ export default function WorkflowGraph({ activeNode }: WorkflowGraphProps) {
   }
 
   return (
-    <div className="relative h-full flex items-center justify-center">
-      <svg
-        className="w-full h-full max-h-[500px]"
-        viewBox="0 0 60 450"
-        preserveAspectRatio="xMidYMid meet"
-      >
-        <defs>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-            <feMerge>
-              <feMergeNode in="coloredBlur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
-        {/* Connector lines */}
-        {nodes.map((_, idx) => {
-          if (idx === nodes.length - 1) return null
-          const y1 = 30 + idx * 55
-          const y2 = 30 + (idx + 1) * 55
-          const fromStatus = getStatus(idx)
-          const toStatus = getStatus(idx + 1)
-          // Line is bright if either end node is active or completed
-          const isLit = fromStatus !== 'inactive' || toStatus !== 'inactive'
-          return (
-            <line
-              key={idx}
-              x1="30" y1={y1} x2="30" y2={y2}
-              stroke={isLit ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)'}
-              strokeDasharray="2,2"
-            />
-          )
-        })}
-
-        {/* Nodes */}
-        {nodes.map((node, idx) => {
-          const y = 30 + idx * 55
-          const status = getStatus(idx)
-
-          return (
-            <g key={node.id}>
-              {/* Pulsing glow — active only */}
-              {status === 'active' && (
-                <>
-                  <circle cx="30" cy={y} r="14" fill="white" opacity="0.3">
-                    <animate attributeName="opacity" values="0.3;0.6;0.3" dur="2s" repeatCount="indefinite" />
-                  </circle>
-                  <circle cx="30" cy={y} r="10" fill="white" opacity="0.5">
-                    <animate attributeName="opacity" values="0.5;0.8;0.5" dur="2s" repeatCount="indefinite" />
-                  </circle>
-                </>
+    <div className="relative h-full flex flex-col py-6 px-4 custom-scrollbar overflow-y-auto w-full">
+       {nodes.map((node, idx) => {
+         const status = getStatus(idx)
+         const isActive = status === 'active'
+         const isCompleted = status === 'completed'
+         
+         return (
+           <div key={node.id} className="relative flex items-start group">
+              {/* Connector Line */}
+              {idx !== nodes.length - 1 && (
+                 <div className="absolute left-[11px] top-6 bottom-[-8px] w-0.5">
+                    <div className={`w-full h-full transition-all duration-700 ${isCompleted ? 'bg-accent-indigo/60' : 'bg-white/5'}`}></div>
+                 </div>
               )}
-
-              {/* Node dot */}
-              <circle
-                cx="30"
-                cy={y}
-                r="7"
-                fill={
-                  status === 'active'    ? 'white' :
-                  status === 'completed' ? 'rgba(6,182,212,0.6)' :  /* cyan for done */
-                  'transparent'
-                }
-                stroke={
-                  status === 'active'    ? 'white' :
-                  status === 'completed' ? 'rgba(6,182,212,0.8)' :
-                  'rgba(255,255,255,0.2)'
-                }
-                strokeWidth={status === 'inactive' ? '1.5' : '2'}
-                filter={status === 'active' ? 'url(#glow)' : 'none'}
-              />
-
-              {/* Checkmark inside completed nodes */}
-              {status === 'completed' && (
-                <text
-                  x="30"
-                  y={y + 1}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fill="rgba(6,182,212,0.9)"
-                  fontSize="7"
-                  fontWeight="bold"
-                >
-                  ✓
-                </text>
-              )}
-
-              {/* Label */}
-              <text
-                x="30"
-                y={y + 22}
-                textAnchor="middle"
-                fill={
-                  status === 'active'    ? 'white' :
-                  status === 'completed' ? 'rgba(6,182,212,0.7)' :
-                  'rgba(255,255,255,0.25)'
-                }
-                fontSize="8"
-                fontWeight={status === 'active' ? '700' : '400'}
-                letterSpacing="0.3px"
+              
+              {/* Node Indicator */}
+              <div className="relative z-10 flex-shrink-0 mt-0.5 mr-4">
+                 <div className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-500
+                    ${isActive ? 'border-accent-indigo bg-accent-indigo/10 shadow-[0_0_15px_rgba(99,102,241,0.25)]' : 
+                      isCompleted ? 'border-accent-indigo bg-accent-indigo' : 'border-border-subtle bg-charcoal-base'}`}
+                 >
+                    {isActive && (
+                       <span className="w-2.5 h-2.5 rounded-full bg-accent-indigo animate-pulse"></span>
+                    )}
+                    {isCompleted && (
+                       <svg className="w-3.5 h-3.5 text-pure-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                       </svg>
+                    )}
+                    {!isActive && !isCompleted && (
+                       <span className="w-1.5 h-1.5 rounded-full bg-text-tertiary/50"></span>
+                    )}
+                 </div>
+              </div>
+              
+              {/* Node Label */}
+              <div className={`pb-10 -mt-0.5 transition-colors duration-300
+                 ${isActive ? 'text-text-primary' : isCompleted ? 'text-text-secondary' : 'text-text-tertiary'}`}
               >
-                {node.label}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
+                 <span className="text-xs font-heading font-semibold tracking-wide block">{node.label}</span>
+                 {isActive && (
+                   <div className="text-[10px] uppercase tracking-widest text-accent-indigo font-medium mt-1.5 flex items-center gap-1 opacity-80">
+                     <span>Processing</span>
+                     <span className="flex gap-0.5 ml-1">
+                        <span className="w-1 h-1 rounded-full bg-current animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                        <span className="w-1 h-1 rounded-full bg-current animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                        <span className="w-1 h-1 rounded-full bg-current animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                     </span>
+                   </div>
+                 )}
+                 {isCompleted && (
+                     <span className="text-[9px] uppercase tracking-[0.2em] text-text-tertiary mt-1 block">Verified</span>
+                 )}
+              </div>
+           </div>
+         )
+       })}
     </div>
   )
 }

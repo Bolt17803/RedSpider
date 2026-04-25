@@ -14,21 +14,21 @@ const STATUS_CONFIG: Record<string, {
 }> = {
   pending: {
     icon: '○',
-    textClass: 'text-white/40',
-    bgClass: 'bg-white/[0.01] border-white/[0.04]',
-    iconClass: 'text-white/20',
+    textClass: 'text-text-tertiary',
+    bgClass: 'bg-white/5 border-border-subtle',
+    iconClass: 'text-text-tertiary',
   },
   in_progress: {
     icon: '◉',
-    textClass: 'text-gold-light',
-    bgClass: 'bg-gold-accent/[0.05] border-gold-accent/20',
-    iconClass: 'text-gold-accent animate-pulse-soft text-glow-accent',
+    textClass: 'text-accent-indigo',
+    bgClass: 'bg-accent-indigo/10 border-accent-indigo/20',
+    iconClass: 'text-accent-indigo animate-pulse-subtle',
   },
   completed: {
     icon: '✓',
-    textClass: 'text-cyan-300/70 line-through',
-    bgClass: 'bg-electric-cyan/[0.04] border-electric-cyan/20',
-    iconClass: 'text-electric-cyan text-glow',
+    textClass: 'text-text-secondary line-through',
+    bgClass: 'bg-white/10 border-border-focus',
+    iconClass: 'text-text-primary',
   },
 }
 
@@ -42,26 +42,26 @@ export default function TodoList({ todos }: { todos: TodoItem[] }) {
   const pct = total ? Math.round((completed / total) * 100) : 0
 
   return (
-    <div className="rounded-xl glass-premium p-5 space-y-4">
+    <div className="rounded-xl surface-panel p-5 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium text-platinum/80 uppercase tracking-[0.2em]">
+        <span className="text-[11px] font-heading font-medium text-text-primary uppercase tracking-widest">
           TODO Tasks
         </span>
-        <span className="text-[11px] text-white/40 font-mono tracking-widest">
+        <span className="text-[11px] text-text-tertiary font-mono tracking-widest">
           {completed}/{total}
         </span>
       </div>
 
       {/* Progress bar */}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between text-[10px] text-white/30 font-mono tracking-wider">
+        <div className="flex items-center justify-between text-[10px] text-text-tertiary font-mono tracking-wider">
           <span>PROGRESS</span>
           <span>{pct}%</span>
         </div>
-        <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden shadow-inner">
+        <div className="h-1.5 rounded-full bg-pure-black border border-border-subtle overflow-hidden">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-electric-blue via-electric-cyan to-electric-cyan transition-all duration-700 ease-out shadow-[0_0_10px_rgba(6,182,212,0.5)]"
+            className="h-full rounded-full bg-gradient-to-r from-accent-indigo to-accent-indigo transition-all duration-700 ease-out shadow-sm"
             style={{ width: `${pct}%` }}
           />
         </div>

@@ -25,25 +25,25 @@ const STATUS_COLORS: Record<string, {
   border: string
 }> = {
   pending: {
-    icon: 'text-white/30',
-    badge: 'bg-white/5 border-white/10',
-    badgeText: 'text-white/40',
-    border: 'border-white/[0.04]',
+    icon: 'text-text-tertiary',
+    badge: 'bg-white/5 border-border-subtle',
+    badgeText: 'text-text-tertiary',
+    border: 'border-border-subtle',
   },
   running: {
-    icon: 'text-gold-accent animate-pulse-soft text-glow-accent',
-    badge: 'bg-gold-accent/10 border-gold-accent/30',
-    badgeText: 'text-gold-light',
-    border: 'border-gold-accent/20 shadow-[0_0_15px_rgba(212,175,55,0.05)]',
+    icon: 'text-accent-indigo animate-pulse-subtle',
+    badge: 'bg-accent-indigo/10 border-accent-indigo/30',
+    badgeText: 'text-accent-indigo',
+    border: 'border-accent-indigo/20 shadow-[0_0_15px_rgba(99,102,241,0.05)]',
   },
   complete: {
-    icon: 'text-electric-cyan text-glow',
-    badge: 'bg-electric-cyan/10 border-electric-cyan/30',
-    badgeText: 'text-cyan-300',
-    border: 'border-electric-cyan/20 shadow-[0_0_15px_rgba(6,182,212,0.05)]',
+    icon: 'text-text-secondary',
+    badge: 'bg-white/10 border-border-focus',
+    badgeText: 'text-text-primary',
+    border: 'border-border-subtle hover:border-border-focus',
   },
   error: {
-    icon: 'text-red-500 text-glow',
+    icon: 'text-red-500',
     badge: 'bg-red-500/10 border-red-500/30',
     badgeText: 'text-red-400',
     border: 'border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.05)]',
@@ -77,7 +77,7 @@ export default function SubagentCard({ subagent }: { subagent: SubagentInfo }) {
   }, [subagent.status, subagent.startedAt, subagent.completedAt])
 
   return (
-    <div className={`rounded-xl glass-premium shadow-lg transition-all duration-500 ${colors.border}`}>
+    <div className={`rounded-xl surface-panel shadow-lg transition-all duration-300 ${colors.border}`}>
       {/* Header — always visible */}
       <button
         onClick={() => setExpanded(!expanded)}
@@ -89,7 +89,7 @@ export default function SubagentCard({ subagent }: { subagent: SubagentInfo }) {
             {STATUS_ICON[subagent.status] ?? '○'}
           </span>
           <div className="text-left">
-            <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-platinum/90">
+            <h4 className="text-[11px] font-heading font-semibold uppercase tracking-widest text-text-primary">
               {subagent.label}
             </h4>
           </div>
@@ -97,16 +97,16 @@ export default function SubagentCard({ subagent }: { subagent: SubagentInfo }) {
 
         <div className="flex items-center gap-3">
           {elapsed && (
-            <span className="text-[11px] text-white/40 font-mono tracking-widest">{elapsed}</span>
+            <span className="text-[11px] text-text-tertiary font-mono tracking-widest">{elapsed}</span>
           )}
           {/* Status badge */}
-          <span className={`text-[9px] uppercase tracking-[0.2em] font-medium px-3 py-1.5 rounded-full border ${colors.badge} ${colors.badgeText} transition-colors duration-500`}>
+          <span className={`text-[9px] uppercase tracking-[0.2em] font-medium px-3 py-1.5 rounded-full border ${colors.badge} ${colors.badgeText} transition-colors duration-300`}>
             {subagent.status}
           </span>
           {/* Expand/collapse chevron */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className={`h-4 w-4 text-white/30 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 text-text-tertiary transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -118,17 +118,17 @@ export default function SubagentCard({ subagent }: { subagent: SubagentInfo }) {
 
       {/* Body — collapsible */}
       {expanded && subagent.lastContent && (
-        <div className="border-t border-white/[0.04] px-5 py-4 bg-black/10">
-          <div className="text-[11px] text-platinum-muted font-mono leading-relaxed max-h-40 overflow-y-auto custom-scrollbar whitespace-pre-wrap">
+        <div className="border-t border-border-subtle px-5 py-4 bg-pure-black/40">
+          <div className="text-[12px] text-text-secondary font-mono leading-relaxed max-h-96 overflow-y-auto custom-scrollbar whitespace-pre-wrap">
             {subagent.lastContent}
             {subagent.status === 'running' && (
-              <span className="inline-block h-3 w-1 ml-1 animate-pulse bg-gold-accent align-bottom shadow-[0_0_8px_rgba(212,175,55,0.6)]" />
+              <span className="inline-block h-3 w-1.5 ml-1 animate-pulse bg-accent-indigo align-bottom" />
             )}
           </div>
           {/* Show "thinking..." label while running to signal this is live reasoning */}
           {subagent.status === 'running' && (
             <div className="mt-2 flex items-center gap-1.5">
-              <span className="text-[9px] uppercase tracking-[0.2em] text-white/20 font-medium">
+              <span className="text-[9px] uppercase tracking-[0.2em] text-text-tertiary font-medium">
                 Thinking...
               </span>
             </div>

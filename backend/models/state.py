@@ -33,11 +33,16 @@ class GraphState(TypedDict):
     final_planner_response: str
     planner_messages: Annotated[list, operator.add]
 
+    # ── Shared project context (NEW — injected into every subagent) ───────────
+    # Written after planner approval. JSON string on disk, dict here in state.
+    project_context: Optional[Dict[str, Any]]
+
     # ── Coder phase ───────────────────────────────────────────────────────────
     code_summary: str
     # Persisted todo list so the UI can restore it on page refresh.
     # Each item: {"task": str, "status": "pending"|"in_progress"|"completed"}
     todos: List[Dict[str, Any]]
+    coding_retry_count: int
 
     # ── Validation phase ──────────────────────────────────────────────────────
     validation_status: str
@@ -45,10 +50,14 @@ class GraphState(TypedDict):
     validation_pending_command: Optional[str]
     validation_user_decision: Optional[str]
     validation_approval_count: int  # Tracks command approval loops to prevent infinite retries
+    validation_failed_files: List[str]
 
     # ── Summarizer phase ──────────────────────────────────────────────────────
     final_summary: str
 
+    # ── Diagnostics (NEW — per-node timing for debugging) ─────────────────────
+    node_timings: Dict[str, float]  # {"coder_agent": 142.3, ...} seconds
+    
     # ── Errors ────────────────────────────────────────────────────────────────
     errors: List[str]
 

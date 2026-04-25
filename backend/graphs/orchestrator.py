@@ -6,7 +6,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ProviderStrategy
-from deepagents import create_deep_agent
+from deepagents import create_deep_agent, CompiledSubAgent
 from langchain_anthropic import ChatAnthropic
 from pydantic import BaseModel, Field
 from typing import Literal
@@ -15,6 +15,7 @@ from prompts.planner import planner_backstory_short_v2
 from prompts.coder import coder_backstory
 from prompts.validation import validation_backstory
 from prompts.summarizer import summarizer_backstory
+from prompts.subcoding_agents import backend_specialist_prompt, frontend_specialist_prompt, config_specialist_prompt
 from tools.validation import execute_command
 from pathlib import Path
 from langchain_core.messages import HumanMessage
@@ -25,7 +26,11 @@ from nodes.summarizer import summarizer_node
 from deepagents.backends import FilesystemBackend, CompositeBackend, StateBackend
 from langchain.agents.middleware import TodoListMiddleware, HumanInTheLoopMiddleware
 from deepagents.middleware.filesystem import FilesystemMiddleware
+import time
+import asyncio
+from models.project_context import ProjectContext, build_project_context_from_planner
 
+from langchain_tavily import TavilySearch
 from models.state import GraphState
 from functools import partial
 from langchain.chat_models import init_chat_model
@@ -40,11 +45,12 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL")
 PLAYGROUND_PATH = os.getenv("PLAYGROUND_PATH")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+MAX_CODING_RETRIES = 3 # to prevent infinite coder ↔ validator loop
+
 coder_agent: Any = None
 validation_agent: Any = None
 tester_agent: Any = None
-
-
 
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",  # Using 1.5-flash for better rate limits
@@ -177,10 +183,15 @@ def architect_decision_node(state: GraphState):
     else:
         return "agent"
 #----------------------------------------------------------------PLANNER AGENT----------------------------------------------------
+tavily_search = TavilySearch(
+    max_results=5,
+    search_depth="advanced",   # deeper results for technical research
+    topic="general",
+)
 planner_agent = create_agent(
     model=llm,
     system_prompt=planner_backstory_short_v2(),
-    tools=[]
+    tools=[tavily_search]
 )
 
 def planner_node(state: GraphState): 
@@ -213,7 +224,15 @@ def planner_node(state: GraphState):
     print("--- [Planner Node] COMPLETED ---")
 
     full_history = response['messages']
-    planner_response = response['messages'][-1].content
+    raw_content = response['messages'][-1].content
+    # Gemini/Anthropic can return content as a list of blocks instead of str
+    if isinstance(raw_content, list):
+        planner_response = "".join(
+            item.get("text", "") if isinstance(item, dict) else str(item)
+            for item in raw_content
+        )
+    else:
+        planner_response = str(raw_content)
     
     existing_len = len(state.get('planner_messages', []))
     new_messages = full_history[existing_len:]
@@ -236,13 +255,29 @@ def planner_response_review_node(state: GraphState):
     return {'user_response': feedback}
 
 def planner_decision_node(state: GraphState):
-    # (This function is fine, no changes needed)
     if state['user_response'].lower() == "approve":
         print("--- [Planner Decision Node : ENDING] ---")
         workspace_path = os.path.join(PLAYGROUND_PATH, state["title"])
-        planner_response_file_path= os.path.join(workspace_path, "planner_response.txt")
+
+        # Save planner response to disk
+        planner_response_file_path = os.path.join(workspace_path, "planner_response.txt")
+        planner_text = state["planner_response"]
+        if isinstance(planner_text, list):
+            planner_text = "".join(
+                item.get("text", "") if isinstance(item, dict) else str(item)
+                for item in planner_text
+            )
         with open(planner_response_file_path, "w", encoding="utf-8") as f:
-            f.write(state["planner_response"])
+            f.write(str(planner_text))
+
+        # NEW — Build and save ProjectContext + CLAUDE.md immediately
+        ctx = build_project_context_from_planner(
+            planner_response=str(planner_text),
+            workspace_path=workspace_path,
+            project_name=state["title"],
+        )
+        print(f"[Planner Decision] ProjectContext saved. Versions: {list(ctx.pinned_versions.keys())}")
+
         return END
     else:
         print("--- [Planner Decision Node : LOOPING] ---")
@@ -252,26 +287,77 @@ def planner_decision_node(state: GraphState):
 def create_coder_agent(path: str):
     global coder_agent
     root_dir = str(Path(path).resolve())
+    
+    # One FilesystemBackend instance, passed to the parent.
+    # Dict-based subagents inherit this backend automatically —
+    # no need to create separate FilesystemBackend instances per subagent.
     fs_backend = FilesystemBackend(root_dir=root_dir, virtual_mode=True)
 
-    composite_backend = lambda rt: CompositeBackend(
-        default=fs_backend,   # ← subagents inherit this as their default too
-        routes={}             # no special routes needed
-    )
-    coder_agent = create_deep_agent(
-            model=deepagent_llm,
-            system_prompt=coder_backstory()+ f"""
+    fs_path_hint = f"""
+        IMPORTANT: Your workspace root is: {root_dir}
+        All files must be written using virtual paths starting with /
+        Examples:
+        write_file("/backend/main.py", ...)            → saves to {root_dir}/backend/main.py
+        write_file("/frontend/src/App.tsx", ...)       → saves to {root_dir}/frontend/src/App.tsx
+        write_file("/PROJECT_SUMMARY.md", ...)         → saves to {root_dir}/PROJECT_SUMMARY.md
+        Never use absolute OS paths or relative paths without a leading slash.
+        CRITICAL: write_file() only creates NEW files. If a file already exists,
+        use edit_file() to modify it. Never call write_file() on an existing file.
+    """
 
-            IMPORTANT: Your workspace root is: {root_dir}
-            All files must be written using virtual paths starting with /
-            Examples:
-            write_file("/main.py", ...)           → saves to {root_dir}/main.py
-            write_file("/src/api/routes.py", ...) → saves to {root_dir}/src/api/routes.py
-            write_file("/PROJECT_SUMMARY.md", ...) → saves to {root_dir}/PROJECT_SUMMARY.md
-            Never use absolute OS paths or relative paths without a leading slash.
+    backend_sub_agent = create_deep_agent(
+        model=deepagent_llm,
+        system_prompt=backend_specialist_prompt() + fs_path_hint,
+        backend = fs_backend
+    )
+    frontend_sub_agent = create_deep_agent(
+        model=deepagent_llm,
+        system_prompt=frontend_specialist_prompt() + fs_path_hint,
+        backend = fs_backend
+    )
+    config_sub_agent = create_deep_agent(
+        model=deepagent_llm,
+        system_prompt=config_specialist_prompt() + fs_path_hint,
+        backend = fs_backend
+    )
+    subagents = [
+        CompiledSubAgent(
+            name = "backend-agent",
+            description = """
+            Implements all backend server-side code: FastAPI routes, database models,
+            authentication, and business logic. Writes files directly to the shared workspace.
+            Call with a detailed spec including project overview, directory structure,
+            data models, API routes, auth mechanism, and database choice.
             """,
-            backend=composite_backend,
-        )
+            runnable = backend_sub_agent
+        ),
+        CompiledSubAgent(
+            name = "frontend-agent",
+            description = """
+            Implements all frontend React/TypeScript code: components, pages, routing,
+            API integration, and styling. Writes files directly to the shared workspace.
+            Call with a detailed spec including project overview, directory structure,
+            API contract, page/component requirements, TypeScript interfaces, and auth flow.
+            """,
+            runnable = frontend_sub_agent
+        ),
+        CompiledSubAgent(
+            name = "config-agent",
+            description = """
+            Reads the written source code and produces all dependency/config files: 
+            requirements.txt, package.json, and .env.example. 
+            Call ONLY after backend and frontend agents have finished writing their files.
+            """,
+            runnable = config_sub_agent
+        ),
+    ]
+
+    coder_agent = create_deep_agent(
+        model=deepagent_llm,
+        system_prompt=coder_backstory() + fs_path_hint,
+        backend=fs_backend,   
+        subagents=subagents,
+    )
 
 class ValidationResult(BaseModel):
     """Structured output from the tester agent."""
@@ -333,6 +419,10 @@ def review_human_response(state: GraphState):
         print("--- [Review Human Response Node : ENDING] ---")
         return END
     else:
+        retry = state.get("coding_retry_count", 0)
+        if retry >= MAX_CODING_RETRIES:
+            print(f"[Review] Hit MAX_CODING_RETRIES ({MAX_CODING_RETRIES}). Ending.")
+            return END
         print("--- [Review Human Response Node : LOOPING] ---")
         return "code"
 
@@ -340,8 +430,7 @@ def review_human_response(state: GraphState):
 def init_deepagents(state: GraphState):
     """
     Initialize workspace and deep-agent instances.
-    Also sets default values for the new state fields so LangGraph
-    doesn't encounter missing keys on the first state snapshot.
+    Also sets default values for all new state fields.
     """
     workspace_path = os.path.join(PLAYGROUND_PATH, state["title"])
     os.makedirs(workspace_path, exist_ok=True)
@@ -349,20 +438,20 @@ def init_deepagents(state: GraphState):
     create_validation_agent(workspace_path)
     create_summarizer_agent(workspace_path)
 
-    # Return defaults for new fields — LangGraph merges this with existing state
     return {
         "status": "running",
         "current_node": "init_deepagents",
         "todos": [],
         "errors": [],
         "validation_approval_count": 0,
+        "coding_retry_count": 0,          # NEW
+        "validation_failed_files": [],     # NEW
+        "project_context": None,           # NEW — populated after planner
+        "node_timings": {},                # NEW
     }
 #----------------------------------------------------------------GRAPH INVOKER----------------------------------------------------
 
 def graph_invoker(checkpointer=None):
-    '''
-    this module will invoke the entire graph network
-    '''
     builder = StateGraph(GraphState)
     if not checkpointer:
         checkpointer = MemorySaver()
@@ -372,15 +461,25 @@ def graph_invoker(checkpointer=None):
     builder.add_node("architect_review", architect_response_review_node)
     builder.add_node("planner_agent", planner_node)
     builder.add_node("planner_review", planner_response_review_node)
-    async def _coder_node(state):
+
+    async def _coder_node(state, config):
         return await coder_node(state, coder_agent)
-    builder.add_node("coder_agent", _coder_node)    
+    builder.add_node("coder_agent", _coder_node)
+
     async def _validation_agent_node(state, config):
         return await validation_node(state, validation_agent, config)
     builder.add_node("validation_agent", _validation_agent_node)
     builder.add_node("validation_approval", validation_approval_node)
+
     async def _summarizer_agent_node(state, config):
-        return await summarizer_node(state, summarizer_agent)
+        import time
+        t = time.time()
+        result = await summarizer_node(state, summarizer_agent)
+        elapsed = time.time() - t
+        timings = dict(state.get("node_timings", {}))
+        timings["summarizer_agent"] = elapsed
+        result["node_timings"] = timings
+        return result
     builder.add_node("summarizer_agent", _summarizer_agent_node)
     builder.add_node("human_response", human_response_node)
 
@@ -390,48 +489,35 @@ def graph_invoker(checkpointer=None):
     builder.add_edge("planner_agent", "planner_review")
     builder.add_edge("coder_agent", "validation_agent")
     builder.add_edge("summarizer_agent", "human_response")
-    
+
     builder.add_conditional_edges(
         "architect_review",
         architect_decision_node,
-        {
-            END: "planner_agent",
-            "agent": "architect_agent"
-        }
-
+        {END: "planner_agent", "agent": "architect_agent"},
     )
     builder.add_conditional_edges(
         "planner_review",
         planner_decision_node,
-        {
-            END: "coder_agent",
-            "agent": "planner_agent"
-        }
+        {END: "coder_agent", "agent": "planner_agent"},
     )
-    
     builder.add_conditional_edges(
         "validation_agent",
         should_continue_coding,
         {
             "code": "coder_agent",
             "summarize": "summarizer_agent",
-            "validation_approval": "validation_approval"
-        }
+            "validation_approval": "validation_approval",
+        },
     )
     builder.add_conditional_edges(
         "validation_approval",
         should_continue_after_validation_approval,
-        {
-            "validation": "validation_agent"
-        }
+        {"validation": "validation_agent"},
     )
     builder.add_conditional_edges(
         "human_response",
-        review_human_response,
-        {
-            END: END,
-            "code": "coder_agent"
-        }
+        review_human_response,   # updated version with MAX_CODING_RETRIES guard
+        {END: END, "code": "coder_agent"},
     )
 
     graph = builder.compile(checkpointer=checkpointer)

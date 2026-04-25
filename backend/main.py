@@ -61,6 +61,10 @@ PLAYGROUND_PATH = os.getenv("PLAYGROUND_PATH")
 # Ensure directory exists
 os.makedirs(os.path.dirname(PROJECTS_CSV_PATH), exist_ok=True)
 
+# Initialize Virtual File System
+from vfs import LocalFileSystemProvider
+vfs_provider = LocalFileSystemProvider(PLAYGROUND_PATH)
+
 class CreateProjectRequest(BaseModel):
     title: str
     thread_id: str
@@ -99,6 +103,28 @@ def get_projects():
         return {"projects": []}
         
     return {"projects": projects}
+
+@app.get("/workspace/tree/{project_id}")
+def get_workspace_tree(project_id: str):
+    """Returns the JSON hierarchical directory tree for a project."""
+    try:
+        tree = vfs_provider.get_tree(project_id)
+        return {"tree": tree}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/workspace/file/{project_id}")
+def get_workspace_file(project_id: str, path: str):
+    """Returns the raw content of a specific file in the project."""
+    try:
+        content = vfs_provider.get_file_content(project_id, path)
+        return {"content": content}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="File not found")
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/workflow/start")
 def start_workflow_endpoint(payload: InitRequest):

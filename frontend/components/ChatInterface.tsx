@@ -167,6 +167,10 @@ export default function ChatInterface({
 
     const userMessage = input.trim()
     setInput('')
+    // Reset textarea height after submission
+    const textarea = document.querySelector('textarea')
+    if (textarea) textarea.style.height = 'auto'
+
     setIsLoading(true)
     setWorkflowDone(false)
     setActiveNode('architect_agent')
@@ -225,6 +229,10 @@ export default function ChatInterface({
 
     const userMessage = input.trim()
     setInput('')
+    // Reset textarea height after submission
+    const textarea = document.querySelector('textarea')
+    if (textarea) textarea.style.height = 'auto'
+
     setIsLoading(true)
     setWorkflowDone(false)
 
@@ -367,8 +375,8 @@ export default function ChatInterface({
               const next = new Map(prev)
               const existing = next.get(data.node)
               if (existing) {
-                // Keep last 800 chars — enough to show meaningful thinking
-                const updated = (existing.lastContent + tokenStr).slice(-800)
+                // Keep all streamed tokens so user can read full reasoning
+                const updated = existing.lastContent + tokenStr
                 next.set(data.node, { ...existing, lastContent: updated })
               }
               return next
@@ -385,7 +393,7 @@ export default function ChatInterface({
               const next = new Map(prev)
               const existing = next.get(data.node)
               if (existing) {
-                const updated = (existing.lastContent + toolText).slice(-800)
+                const updated = existing.lastContent + toolText
                 next.set(data.node, { ...existing, lastContent: updated })
               }
               return next
@@ -510,16 +518,14 @@ export default function ChatInterface({
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto px-6 py-6 min-h-0 custom-scrollbar">
         {messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center max-w-md">
-              <div className="text-4xl mb-6 opacity-40">🕷️</div>
-              <p className="text-xl text-platinum mb-2 font-thin tracking-[0.2em] uppercase">
-                System Initialized
-              </p>
-              <p className="text-xs text-platinum-muted font-light tracking-widest">
-                Awaiting objective parameters...
-              </p>
+          <div className="h-full flex flex-col items-center justify-center animate-fade-in-up">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-charcoal-elevated to-charcoal-base border border-border-subtle flex items-center justify-center mb-6 shadow-xl">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-accent-indigo" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
             </div>
+            <h2 className="text-xl font-heading font-medium text-text-primary mb-2">Build with Tarantula</h2>
+            <p className="text-sm font-sans text-text-tertiary">Describe your objective to initiate autonomous generation.</p>
           </div>
         ) : (
           <div className="space-y-5 max-w-4xl mx-auto">
@@ -604,8 +610,8 @@ export default function ChatInterface({
                 ) : (
                   <div
                     className={`max-w-[85%] ${message.role === 'user'
-                      ? 'bg-gradient-to-br from-white/10 to-white/5 text-platinum border border-white/10 rounded-2xl rounded-tr-sm px-6 py-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)]'
-                      : 'bg-transparent text-platinum border-transparent pl-2 py-4'
+                      ? 'bg-charcoal-elevated text-text-primary border border-border-subtle rounded-2xl rounded-tr-sm px-6 py-4 shadow-lg'
+                      : 'bg-transparent text-text-primary border-transparent pl-2 py-4'
                       }`}
                   >
                     {message.node?.includes('architect') && message.role === 'agent' && !message.isLoading && message.content && (
@@ -632,15 +638,17 @@ export default function ChatInterface({
                               {parsed.project_goals && parsed.project_goals.length > 0 && (
                                 <div>
                                   <div className="flex items-center gap-2.5 mb-3">
-                                    <div className="w-5 h-5 rounded-md bg-gold-accent/10 border border-gold-accent/30 flex items-center justify-center flex-shrink-0">
-                                      <span className="text-gold-accent text-[9px]">✦</span>
+                                    <div className="w-6 h-6 rounded bg-accent-indigo/10 border border-accent-indigo/30 flex items-center justify-center flex-shrink-0">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-accent-indigo" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
                                     </div>
-                                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold-light">Project Goals</span>
+                                    <span className="text-[12px] font-heading font-medium text-text-secondary">Project Goals</span>
                                   </div>
-                                  <ul className="space-y-2">
+                                  <ul className="space-y-2 mb-2">
                                     {parsed.project_goals.map((goal, i) => (
-                                      <li key={i} className="flex items-start gap-3 text-[14px] text-platinum/80 font-light leading-relaxed">
-                                        <span className="text-gold-accent/50 mt-1 text-[10px] flex-shrink-0">▸</span>
+                                      <li key={i} className="flex items-start gap-3 text-[14px] text-text-secondary leading-relaxed">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-text-tertiary mt-2 flex-shrink-0"></div>
                                         {goal}
                                       </li>
                                     ))}
@@ -648,20 +656,20 @@ export default function ChatInterface({
                                 </div>
                               )}
                               {parsed.project_goals?.length && parsed.follow_up_questions?.length
-                                ? <div className="border-t border-white/[0.06]" />
+                                ? <div className="border-t border-border-subtle my-2" />
                                 : null}
                               {parsed.follow_up_questions && parsed.follow_up_questions.length > 0 && (
                                 <div>
                                   <div className="flex items-center gap-2.5 mb-3">
-                                    <div className="w-5 h-5 rounded-md bg-electric-blue/10 border border-electric-blue/30 flex items-center justify-center flex-shrink-0">
-                                      <span className="text-electric-blue text-[9px]">?</span>
+                                    <div className="w-6 h-6 rounded bg-amber-500/10 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
+                                      <span className="text-amber-500 text-sm font-bold">?</span>
                                     </div>
-                                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-electric-cyan">Clarification Needed</span>
+                                    <span className="text-[12px] font-heading font-medium text-text-secondary">Clarification Needed</span>
                                   </div>
-                                  <ol className="space-y-2.5">
+                                  <ol className="space-y-3">
                                     {parsed.follow_up_questions.map((q, i) => (
-                                      <li key={i} className="flex items-start gap-3 text-[14px] text-platinum/80 font-light leading-relaxed">
-                                        <span className="text-electric-blue/60 font-mono text-[11px] mt-0.5 flex-shrink-0 min-w-[1.2rem]">{i + 1}.</span>
+                                      <li key={i} className="flex items-start gap-3 text-[14px] text-text-secondary leading-relaxed">
+                                        <span className="text-text-tertiary font-mono text-[11px] mt-0.5 flex-shrink-0 min-w-[1.2rem]">{i + 1}.</span>
                                         {q}
                                       </li>
                                     ))}
@@ -673,7 +681,7 @@ export default function ChatInterface({
                         }
 
                         return (
-                          <div className="prose prose-sm prose-invert max-w-none prose-p:text-platinum prose-p:leading-relaxed prose-p:font-light prose-p:text-[15px] prose-li:text-platinum/80 prose-li:font-light prose-strong:text-white prose-strong:font-medium">
+                          <div className="markdown-content">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                           </div>
                         )
@@ -692,21 +700,21 @@ export default function ChatInterface({
 
       {/* Instruction Banner */}
       {instruction && (
-        <div className="border-t border-white/5 bg-carbon/90 backdrop-blur-md">
+        <div className="border-t border-border-subtle surface-panel backdrop-blur-md">
           <div className="max-w-4xl mx-auto">
             {isCommandApproval && pendingCommand && (
               <div className="px-6 pt-4 pb-2">
-                <div className="flex items-start gap-3 bg-black/60 border border-white/[0.06] rounded-xl px-5 py-4">
-                  <span className="text-yellow-400/70 text-[11px] mt-0.5 flex-shrink-0 font-mono">$</span>
-                  <code className="text-[13px] font-mono text-platinum/90 whitespace-pre-wrap break-all leading-relaxed flex-1">
+                <div className="flex items-start gap-3 bg-pure-black border border-border-subtle rounded-lg px-5 py-4">
+                  <span className="text-accent-indigo text-[12px] mt-0.5 flex-shrink-0 font-mono">$</span>
+                  <code className="text-[13px] font-mono text-text-primary whitespace-pre-wrap break-all leading-relaxed flex-1">
                     {pendingCommand}
                   </code>
                 </div>
               </div>
             )}
-            <div className="flex items-center justify-between px-6 py-3">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-white/50 font-medium">
-                {isCommandApproval ? '⚡ Command requires approval' : `Action Required: ${instruction}`}
+            <div className="flex items-center justify-between px-6 py-4">
+              <p className="text-xs font-medium text-text-secondary">
+                {isCommandApproval ? '⚡ Command requires approval before execution' : `Action Required: ${instruction}`}
               </p>
               {isWaitingForApproval && (
                 <div className="flex items-center gap-3 ml-4 flex-shrink-0">
@@ -721,7 +729,7 @@ export default function ChatInterface({
                         setPendingCommand(null)
                         setTimeout(() => { const f = document.querySelector('form'); if (f) f.requestSubmit() }, 0)
                       }}
-                      className="px-6 py-2 bg-white/10 border border-white/20 text-white/70 text-[10px] uppercase tracking-[0.2em] font-bold rounded-full hover:bg-red-900/30 hover:border-red-400/40 hover:text-red-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                      className="px-5 py-2 bg-transparent hover:bg-white/5 border border-border-subtle text-text-secondary text-xs font-medium rounded-lg disabled:opacity-50 transition-all"
                     >
                       Reject
                     </button>
@@ -736,7 +744,7 @@ export default function ChatInterface({
                       setPendingCommand(null)
                       setTimeout(() => { const f = document.querySelector('form'); if (f) f.requestSubmit() }, 0)
                     }}
-                    className="px-6 py-2 bg-white text-obsidian text-[10px] uppercase tracking-[0.2em] font-bold rounded-full hover:shadow-[0_0_15px_rgba(255,255,255,0.4)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    className="px-5 py-2 bg-text-primary text-pure-black text-xs font-medium rounded-lg hover:bg-white/90 disabled:opacity-50 transition-all"
                   >
                     Approve
                   </button>
@@ -748,39 +756,57 @@ export default function ChatInterface({
       )}
 
       {/* Input Area */}
-      <div className="px-6 py-6 pb-8 border-t border-white/5 bg-obsidian relative z-20">
-        <div className="absolute inset-0 top-auto h-32 bg-gradient-to-t from-electric-blue/5 to-transparent pointer-events-none"></div>
+      <div className="px-6 py-4 pb-6 border-t border-border-subtle bg-charcoal-base z-20">
         <form
           onSubmit={!threadId ? (e) => handleStartWorkflow(e, null) : handleSubmit}
-          className="relative z-10 glass-premium rounded-full p-1.5 max-w-3xl mx-auto shadow-[0_0_40px_rgba(0,0,0,0.5)]"
+          className="relative max-w-4xl mx-auto flex items-end gap-2 bg-charcoal-surface border border-border-subtle rounded-2xl shadow-sm focus-within:border-border-focus focus-within:shadow-md transition-all"
         >
-          <div className="flex gap-2 w-full">
-            <input
-              type="text"
+          <div className="flex-1 overflow-hidden">
+            <textarea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value)
+                e.target.style.height = 'auto'
+                e.target.style.height = `${Math.min(e.target.scrollHeight, 256)}px`
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (input.trim() && !isLoading) {
+                    const f = e.currentTarget.closest('form');
+                    if (f) f.requestSubmit();
+                  }
+                }
+              }}
               placeholder={
                 isWaitingForApproval
                   ? 'Type feedback or click Approve...'
                   : threadId
-                    ? 'Type your directive...'
+                    ? 'Message Tarantula...'
                     : 'Describe your objective to initiate workflow...'
               }
-              className="flex-1 bg-transparent border-none px-6 py-4 text-[15px] text-platinum placeholder-white/20 focus:outline-none transition-all font-light tracking-wide w-full rounded-full"
+              rows={1}
+              style={{ minHeight: '52px' }}
+              className="w-full bg-transparent border-none px-6 py-4 max-h-64 text-[15px] text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-0 custom-scrollbar resize-none leading-relaxed"
               disabled={isLoading}
             />
+          </div>
+          <div className="p-2 flex-shrink-0">
             <button
               type="submit"
               disabled={isLoading || !input.trim()}
               onClick={() => setIsWaitingForApproval(false)}
-              className="w-14 h-14 flex-shrink-0 flex items-center justify-center bg-gradient-to-br from-platinum to-platinum-muted text-obsidian rounded-full hover:from-white hover:to-platinum hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] disabled:opacity-20 disabled:hover:shadow-none disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 disabled:transform-none"
+              className="w-10 h-10 flex items-center justify-center bg-white/5 text-text-secondary rounded-xl hover:bg-white/10 hover:text-text-primary border border-border-subtle disabled:opacity-30 disabled:hover:bg-white/5 disabled:hover:text-text-secondary transition-all"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 -rotate-90">
-                <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-7 7m7-7l7 7" />
               </svg>
             </button>
           </div>
         </form>
+        <div className="text-center mt-3">
+          <p className="text-[11px] text-text-tertiary">Tarantula can make mistakes. Verify critical code generation.</p>
+        </div>
       </div>
     </div>
   )

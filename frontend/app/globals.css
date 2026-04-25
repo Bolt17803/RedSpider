@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 229, 229, 229;
-  --background-start-rgb: 5, 5, 5;
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 0, 0, 0;
   --background-end-rgb: 0, 0, 0;
 }
 
@@ -18,106 +18,107 @@ html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
-  background-color: #050505;
-  color: rgb(var(--foreground-rgb));
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  letter-spacing: -0.01em;
+  background-color: #000000;
+  color: #FFFFFF;
+  font-family: var(--font-manrope), sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  background-color: #030305;
   height: 100vh;
   overflow: hidden;
 }
 
-::-webkit-scrollbar {
-  width: 3px;
-  height: 3px;
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-outfit), sans-serif;
+  letter-spacing: -0.02em;
 }
 
+/* Scrollbar refinement */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Base Glass morphism effect (legacy) */
-.glass-strong {
-  background: rgba(255, 255, 255, 0.02);
+/* Premium Surface Panels */
+.surface-panel {
+  background: linear-gradient(180deg, rgba(10, 10, 11, 0.8) 0%, rgba(5, 5, 5, 0.9) 100%);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.5);
 }
 
-/* New Premium Glass for Luxurious UI */
-.glass-premium {
-  background: linear-gradient(145deg, rgba(20,20,30,0.6) 0%, rgba(10,10,15,0.8) 100%);
-  backdrop-filter: blur(40px) saturate(150%);
-  -webkit-backdrop-filter: blur(40px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+.surface-panel-interactive {
+  background: rgba(18, 18, 20, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Text glow utilities */
-.text-glow {
-  text-shadow: 0 0 20px rgba(255,255,255,0.3);
+.surface-panel-interactive:hover {
+  background: rgba(26, 26, 30, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.6);
 }
 
-.text-glow-accent {
-  text-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
-}
+/* Staggered entry animation utility classes */
+.stagger-1 { animation-delay: 100ms; }
+.stagger-2 { animation-delay: 200ms; }
+.stagger-3 { animation-delay: 300ms; }
+.stagger-4 { animation-delay: 400ms; }
+.stagger-5 { animation-delay: 500ms; }
 
-/* Markdown styling - Refined for contrast */
+/* Markdown styling - Premium & Crisp */
 .markdown-content {
-  @apply text-platinum/90 leading-relaxed font-light tracking-wide;
+  @apply text-text-secondary leading-relaxed tracking-normal text-[14px];
 }
 
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3 {
-  @apply text-white mt-6 mb-4 font-normal tracking-tight;
+  @apply text-white mt-8 mb-4 tracking-tight font-heading;
 }
 
 .markdown-content h1 {
-  @apply text-2xl font-medium;
+  @apply text-2xl font-semibold;
 }
 
 .markdown-content h2 {
-  @apply text-lg border-b border-white/10 pb-3;
+  @apply text-lg font-medium border-b border-white/5 pb-2;
 }
 
 .markdown-content ul,
 .markdown-content ol {
-  @apply ml-5 mb-4 space-y-1.5;
+  @apply ml-5 mb-4 space-y-2;
 }
 
 .markdown-content li {
-  @apply text-platinum-muted leading-relaxed;
+  @apply text-text-secondary leading-relaxed;
 }
 
 .markdown-content p {
-  @apply mb-4;
+  @apply mb-5;
 }
 
 .markdown-content code {
-  @apply bg-[#08080C] px-1.5 py-0.5 rounded-md text-emerald-300 text-[13px] font-mono border border-white/5;
+  @apply bg-[#18181B] px-1.5 py-0.5 rounded-md text-accent-silver text-[13px] font-mono border border-white/[0.04];
 }
 
 .markdown-content pre {
-  @apply bg-[#030305] p-5 rounded-xl my-5 overflow-x-auto border border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.5)];
+  @apply bg-[#000000] p-5 rounded-xl my-6 overflow-x-auto border border-white/[0.04] shadow-inner;
 }
 
 .markdown-content pre code {
-  @apply bg-transparent p-0 text-platinum text-[13px] border-none;
+  @apply bg-transparent p-0 text-text-secondary text-[13px] border-none shadow-none;
 }
