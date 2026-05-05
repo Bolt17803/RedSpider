@@ -1,61 +1,51 @@
-# RedSpider
-
-## Description
-RedSpider is a powerful tool designed for managing and automating tasks related to spidering and web crawling. It provides a user-friendly interface and robust backend architecture that enables users to efficiently execute web scraping tasks while ensuring compliance with web scraping ethics.
+# Multi-Agent Framework Documentation
 
 ## Features
-- **Task Automation**: Automate repetitive web scraping tasks with customizable settings.
-- **User-Friendly Interface**: Intuitive UI for easy navigation and task management.
-- **Proxy Support**: Built-in support for rotating proxies to ensure uninterrupted web scraping.
-- **Data Storage**: Options to store scraped data in various formats, including CSV, JSON, and databases.
-- **Multithreading**: Execute multiple scraping tasks simultaneously to speed up data collection.
+- Comprehensive multi-agent capabilities.
+- Scalability to support a large number of agents.
+- Real-time communication between agents.
 
 ## Architecture
-RedSpider is built using a modular architecture that separates different components of the application for better maintainability and scalability. The core components include:
-- **Frontend**: Developed with React.js, providing an interactive user interface.
-- **Backend**: Implemented in Python using Flask for handling API requests and managing backend logic.
-- **Database**: Utilizes SQLite for lightweight data storage, with the option to integrate with larger databases like PostgreSQL.
+- Designed using microservices for each individual agent.
+- Central controller for managing agent interactions.
+- Use of message brokers for communication.
 
 ## Setup Instructions
-1. **Clone the Repository**:
+1. Clone the repository:
    ```bash
    git clone https://github.com/Bolt17803/RedSpider.git
-   cd RedSpider
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Configure environment variables in the `.env` file.
+4. Run the application:
+   ```bash
+   npm start
    ```
 
-2. **Install Dependencies**:
-   - For Python backend:
-     ```bash
-     pip install -r requirements.txt
-     ```
-   - For frontend:
-     ```bash
-     cd frontend
-     npm install
-     ```
-
-3. **Configure Environment Variables**:
-   Create a `.env` file in the root directory of the project and populate it with the necessary environment variables.
-
-4. **Run the Application**:
-   - Start the backend server:
-     ```bash
-     python app.py
-     ```
-   - Start the frontend server:
-     ```bash
-     cd frontend
-     npm start
-     ```
-
 ## Usage Guide
-1. Access the application through your web browser at `http://localhost:3000`.
-2. Create a new scraping task by filling out the form with your desired parameters (URL, data points, etc.).
-3. Start the task and monitor its progress through the dashboard.
-4. Once completed, download the scraped data in your preferred format from the results section.
+- Start agents using the provided CLI commands.
+- Monitor agent performance through the web dashboard.
+- Use the API to interact programmatically.
 
-## Contributing
-We welcome contributions to RedSpider! If you'd like to contribute, please fork the repository and submit a pull request.
+## API Endpoints
+- `GET /api/agents`: List all active agents.
+- `POST /api/agents`: Create a new agent.
+- `DELETE /api/agents/:id`: Remove an agent by ID.
 
-## License
-This project is licensed under the MIT License. See the LICENSE file for details.
+## Configuration
+- Configuration options are found in the `config.json` file.
+- Adjust parameters for agent behavior, communication timeouts, etc.
+
+## Dependencies
+- Node.js >= 14.0 
+- Express
+- Socket.io
+- Mongoose
+
+## Troubleshooting
+- Check the logs for errors.
+- Ensure all dependencies are installed correctly.
+- Verify network connectivity for real-time communication.
